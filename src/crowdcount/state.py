@@ -267,8 +267,8 @@ class SharedState:
 
         Rising (nothing -> near, near -> over) is immediate and gets a new id. Dropping a
         level or clearing waits until the lower level has held for ``alert_clear_seconds``;
-        an over -> near drop fires nothing and keeps the id. Disabled or removed rules clear
-        at once.
+        an over -> near drop fires nothing and keeps the id. Admin edits act at once:
+        disabled or removed rules clear, and a changed limit re-levels the alert.
         """
         snap = self._snap
         scopes = [("global", "global", None, snap.total, self._global_rule)] + [
@@ -283,7 +283,12 @@ class SharedState:
         for key, kind, zone, count, rule in scopes:
             level = rule.level(count)
             prev = self._active_alerts.get(key)
-            if prev is not None and _LEVEL_RANK[level] < _LEVEL_RANK[prev.level]:
+            # Hold a drop only while the limit is unchanged: a new limit is an admin edit, not jitter.
+            if (
+                prev is not None
+                and _LEVEL_RANK[level] < _LEVEL_RANK[prev.level]
+                and prev.threshold == rule.limit
+            ):
                 started = self._pending_drop.get(key, now)
                 if now - started < self._alert_clear_seconds:
                     pending[key] = started

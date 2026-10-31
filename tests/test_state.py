@@ -260,6 +260,24 @@ class TestFlapProtection:
         slow_state.publish(total=12, zones={})
         assert slow_state.alerts() == {}
 
+    def test_raising_the_limit_clears_at_once(self, slow_state):
+        slow_state.set_global_rule(AlertRule(2))
+        slow_state.publish(total=6, zones={})
+        assert slow_state.alerts()["global"]["level"] == "over"
+        slow_state.set_global_threshold(50)
+        slow_state.publish(total=6, zones={})
+        assert slow_state.alerts() == {}
+
+    def test_raising_the_limit_drops_a_level_at_once(self, slow_state):
+        fired = []
+        slow_state.add_alert_listener(fired.append)
+        slow_state.publish(total=12, zones={})
+        slow_state.set_global_threshold(14)  # warn_at 12: 12 is near
+        slow_state.publish(total=12, zones={})
+        assert slow_state.alerts()["global"]["level"] == "near"
+        assert slow_state.alerts()["global"]["threshold"] == 14
+        assert [a.level for a in fired] == ["over"]  # dropping a level records nothing
+
 
 class TestSnapshot:
     def test_summary_reports_counts_peak_and_status(self, state, clock):

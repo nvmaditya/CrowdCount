@@ -59,8 +59,9 @@ class TestResolveTracker:
 
 
 class TestResolveModelPath:
-    def test_stock_names_go_to_the_cache(self, tmp_path):
-        assert resolve_model_path("yolov8n.pt", tmp_path) == str(tmp_path / "yolov8n.pt")
+    @pytest.mark.parametrize("name", ["yolov8n.pt", "yolo11s.pt", "yolo26m.pt", "rtdetr-l.pt"])
+    def test_stock_names_go_to_the_cache(self, tmp_path, name):
+        assert resolve_model_path(name, tmp_path) == str(tmp_path / name)
 
     def test_existing_file_is_used_as_is(self, tmp_path):
         weights = tmp_path / "custom.pt"

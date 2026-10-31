@@ -23,8 +23,9 @@ PERSON_CLASS_ID = 0
 #: Short tracker names accepted on the command line.
 TRACKERS = {"bytetrack": "bytetrack.yaml", "botsort": "botsort.yaml"}
 
-#: Ultralytics downloads these by name on first use.
-_STOCK_MODEL_PREFIXES = ("yolov3", "yolov5", "yolov8", "yolov9", "yolov10", "yolo11", "yolo12", "rtdetr")
+#: Ultralytics downloads weights with these name prefixes on first use (yolov8n.pt, yolo11s.pt,
+#: yolo26m.pt, rtdetr-l.pt, ...).
+_STOCK_MODEL_PREFIXES = ("yolo", "rtdetr")
 
 
 class ModelLoadError(RuntimeError):

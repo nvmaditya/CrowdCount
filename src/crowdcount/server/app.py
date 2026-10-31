@@ -23,7 +23,7 @@ from crowdcount.server.admin import admin_router, auth_router
 from crowdcount.server.api import router as api_router
 from crowdcount.server.auth import INITIAL_ADMIN_USERNAME
 from crowdcount.server.deps import Services
-from crowdcount.state import SharedState, shared_state
+from crowdcount.state import AlertRule, SharedState, shared_state
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +40,10 @@ _CSP = (
 def _startup(services: Services, public_url: str | None) -> None:
     state, config = services.state, services.config
 
-    thresholds = config.thresholds()
-    state.set_global_threshold(thresholds["global_threshold"])
-    for zone, value in thresholds["zone_thresholds"].items():
-        state.set_zone_threshold(zone, value)
+    rules = config.rules()
+    state.set_global_rule(AlertRule(**rules["global"]))
+    for zone, rule in rules["zones"].items():
+        state.set_zone_rule(zone, AlertRule(**rule))
 
     generated = services.users.ensure_admin(os.environ)
     if generated:

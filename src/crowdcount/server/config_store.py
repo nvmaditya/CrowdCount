@@ -8,23 +8,30 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-from crowdcount.server.models import Camera, CameraCreate, CameraUpdate, utcnow
+from crowdcount.server.models import Camera, CameraCreate, CameraUpdate, RuleIn, utcnow
 from crowdcount.server.storage import JsonStore
 from crowdcount.state import DEFAULT_GLOBAL_THRESHOLD
 
 DEFAULT_RETENTION_DAYS = 30
+_OPTION_KEYS = frozenset({"warn_percent", "enabled", "banner"})
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "cameras": [],
     "thresholds": {"global_threshold": DEFAULT_GLOBAL_THRESHOLD, "zone_thresholds": {}},
+    "rule_options": {"global": {}, "zones": {}},
     "log_retention_days": DEFAULT_RETENTION_DAYS,
 }
 
 
 def _with_defaults(data: dict[str, Any]) -> dict[str, Any]:
     merged = copy.deepcopy(DEFAULT_CONFIG)
-    merged.update({k: v for k, v in data.items() if k != "thresholds"})
+    merged.update({k: v for k, v in data.items() if k not in ("thresholds", "rule_options")})
     merged["thresholds"].update(data.get("thresholds") or {})
+    options = data.get("rule_options")
+    if isinstance(options, dict):
+        for key in ("global", "zones"):
+            if isinstance(options.get(key), dict):
+                merged["rule_options"][key] = options[key]
     return merged
 
 
@@ -65,21 +72,65 @@ class ConfigStore:
             for name, value in (zone_thresholds or {}).items():
                 if value is None:
                     zones.pop(name, None)
+                    cfg["rule_options"]["zones"].pop(name, None)
                 else:
                     zones[name] = value
             return copy.deepcopy(t)
 
         return self._update(change)
 
-    def rename_zone_threshold(self, old: str, new: str | None) -> None:
-        """Move (or with ``new=None``, drop) a zone's threshold when the zone changes."""
+    # ------------------------------------------------------------------ alert rules
+
+    def rules(self) -> dict[str, Any]:
+        """The global rule and one rule per zone threshold, with defaults filled in."""
+        cfg = self.get()
+        thresholds, options = cfg["thresholds"], cfg["rule_options"]
+
+        def build(limit: Any, opts: Any) -> dict[str, Any]:
+            extra = {k: v for k, v in (opts if isinstance(opts, dict) else {}).items() if k in _OPTION_KEYS}
+            return {"limit": int(limit), **RuleIn(limit=1, **extra).model_dump(exclude={"limit"})}
+
+        return {
+            "global": build(thresholds["global_threshold"], options["global"]),
+            "zones": {
+                name: build(limit, options["zones"].get(name))
+                for name, limit in thresholds["zone_thresholds"].items()
+            },
+        }
+
+    def set_global_rule(self, rule: RuleIn) -> None:
+        def change(cfg: dict[str, Any]) -> None:
+            cfg["thresholds"]["global_threshold"] = rule.limit
+            cfg["rule_options"]["global"] = rule.model_dump(exclude={"limit"})
+
+        self._update(change)
+
+    def set_zone_rule(self, zone: str, rule: RuleIn | None) -> bool:
+        """Set a zone's rule; ``None`` removes it. ``False`` only when removing a rule that isn't there."""
+
+        def change(cfg: dict[str, Any]) -> bool:
+            limits = cfg["thresholds"]["zone_thresholds"]
+            options = cfg["rule_options"]["zones"]
+            if rule is None:
+                existed = zone in limits
+                limits.pop(zone, None)
+                options.pop(zone, None)
+                return existed
+            limits[zone] = rule.limit
+            options[zone] = rule.model_dump(exclude={"limit"})
+            return True
+
+        return self._update(change)
+
+    def rename_zone_rule(self, old: str, new: str | None) -> None:
+        """Move (or with ``new=None``, drop) a zone's threshold and rule options when the zone changes."""
 
         def change(cfg: dict[str, Any]) -> None:
-            zones = cfg["thresholds"]["zone_thresholds"]
-            if old in zones:
-                value = zones.pop(old)
-                if new is not None:
-                    zones[new] = value
+            for bucket in (cfg["thresholds"]["zone_thresholds"], cfg["rule_options"]["zones"]):
+                if old in bucket:
+                    value = bucket.pop(old)
+                    if new is not None:
+                        bucket[new] = value
 
         self._update(change)
 

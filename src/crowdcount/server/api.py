@@ -83,12 +83,12 @@ def history(limit: int = Query(300, ge=1, le=3600), services: Services = Depends
 
 @router.get("/alerts")
 def alerts(services: Services = Depends(get_services)) -> dict:
-    """Thresholds currently exceeded. Reading this has no side effects."""
+    """Active alerts, near-limit and over-limit. ``has_alerts`` counts only over-limit ones. Reading this has no side effects."""
     s = services.state
     active = s.alerts()
     return {
         "alerts": active,
-        "has_alerts": bool(active),
+        "has_alerts": any(a["exceeded"] for a in active.values()),
         "global_threshold": s.get_global_threshold(),
         "total_count": s.total_count,
     }

@@ -9,6 +9,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from crowdcount.state import DEFAULT_WARN_PERCENT
 from crowdcount.zones import Zone, ZoneConfigError
 
 
@@ -53,6 +54,7 @@ class LogAction(str, Enum):
     USER_CREATED = "USER_CREATED"
     USER_DELETED = "USER_DELETED"
     THRESHOLD_EXCEEDED = "THRESHOLD_EXCEEDED"
+    THRESHOLD_WARNING = "THRESHOLD_WARNING"
     ALERT_ACKNOWLEDGED = "ALERT_ACKNOWLEDGED"
     HEATMAP_RESET = "HEATMAP_RESET"
     LOGS_CLEANED = "LOGS_CLEANED"
@@ -197,6 +199,17 @@ class ThresholdUpdate(BaseModel):
         return value
 
 
+class RuleIn(BaseModel):
+    """An alert rule as sent by the admin panel."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    limit: int = Field(ge=1, le=100_000)
+    warn_percent: int = Field(DEFAULT_WARN_PERCENT, ge=1, le=100)
+    enabled: bool = True
+    banner: bool = True
+
+
 # ------------------------------------------------------------------ logs & alerts
 
 
@@ -221,6 +234,7 @@ class AlertRecord(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: datetime = Field(default_factory=utcnow)
     alert_type: str  # "global" or a zone name
+    level: str = "over"  # "over" | "near"; records from before levels existed were all over-limit
     threshold: int
     actual_count: int
     acknowledged: bool = False

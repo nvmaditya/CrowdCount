@@ -23,6 +23,7 @@ from crowdcount.server.models import (
     LogCategory,
     LoginRequest,
     PasswordChange,
+    RuleIn,
     ThresholdUpdate,
     TokenData,
     TokenResponse,
@@ -32,6 +33,7 @@ from crowdcount.server.models import (
     ZoneUpdate,
 )
 from crowdcount.server.reports import activity_report
+from crowdcount.state import AlertRule
 from crowdcount.zones import Zone, ZoneConfigError, load_zones, save_zones
 
 auth_router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -275,6 +277,82 @@ def update_thresholds(
     return {"success": True, "thresholds": thresholds}
 
 
+# ====================================================================== alert rules
+
+
+def _rule(body: RuleIn) -> AlertRule:
+    return AlertRule(**body.model_dump())
+
+
+def _rule_details(scope: str, body: RuleIn) -> str:
+    text = f"Set the {scope} rule: more than {body.limit} people, early warning at {body.warn_percent}%"
+    return text if body.enabled else f"{text} (off)"
+
+
+@admin_router.put("/rules/global", tags=["Alerts"])
+def set_global_rule(
+    body: RuleIn,
+    admin: TokenData = Depends(require_admin),
+    services: Services = Depends(get_services),
+    ip: str = Depends(client_ip),
+) -> dict:
+    """Set the Total occupancy rule. Persists it and applies it to the live detector immediately."""
+    rule = _rule(body)
+    services.config.set_global_rule(body)
+    services.state.set_global_rule(rule)
+    _audit(
+        services,
+        admin,
+        ip,
+        LogAction.THRESHOLD_UPDATED,
+        _rule_details("Total occupancy", body),
+        scope="global",
+    )
+    return {"success": True, "rule": rule.to_dict()}
+
+
+@admin_router.put("/rules/zones/{zone_name:path}", tags=["Alerts"])
+def set_zone_rule(
+    zone_name: str,
+    body: RuleIn,
+    admin: TokenData = Depends(require_admin),
+    services: Services = Depends(get_services),
+    ip: str = Depends(client_ip),
+) -> dict:
+    """Set a zone's rule. The zone must exist in the zones file."""
+    with services.zones_lock:
+        if not any(z.name == zone_name for z in _load_zones_or_500(services)):
+            raise HTTPException(status_code=404, detail="Zone not found")
+        rule = _rule(body)
+        services.config.set_zone_rule(zone_name, body)
+        services.state.set_zone_rule(zone_name, rule)
+    _audit(
+        services,
+        admin,
+        ip,
+        LogAction.THRESHOLD_UPDATED,
+        _rule_details(f"'{zone_name}'", body),
+        scope=zone_name,
+    )
+    return {"success": True, "rule": rule.to_dict()}
+
+
+@admin_router.delete("/rules/zones/{zone_name:path}", tags=["Alerts"])
+def delete_zone_rule(
+    zone_name: str,
+    admin: TokenData = Depends(require_admin),
+    services: Services = Depends(get_services),
+    ip: str = Depends(client_ip),
+) -> dict:
+    if not services.config.set_zone_rule(zone_name, None):
+        raise HTTPException(status_code=404, detail="No alert rule for this zone")
+    services.state.set_zone_rule(zone_name, None)
+    _audit(
+        services, admin, ip, LogAction.THRESHOLD_UPDATED, f"Removed the '{zone_name}' rule", scope=zone_name
+    )
+    return {"success": True}
+
+
 # ====================================================================== zones
 
 
@@ -333,10 +411,8 @@ def update_zone(
         zones[index] = updated
         save_zones(services.zones_file, zones)
     if updated.name != zone_name:
-        services.config.rename_zone_threshold(zone_name, updated.name)
-        threshold = services.state.get_zone_thresholds().get(zone_name)
-        services.state.set_zone_threshold(zone_name, None)
-        services.state.set_zone_threshold(updated.name, threshold)
+        services.config.rename_zone_rule(zone_name, updated.name)
+        services.state.rename_zone_rule(zone_name, updated.name)
     _audit(services, admin, ip, LogAction.ZONE_UPDATED, f"Updated zone '{zone_name}'", changes=list(changes))
     return {"success": True, "zone": updated.to_dict()}
 
@@ -354,8 +430,8 @@ def delete_zone(
         if len(remaining) == len(zones):
             raise HTTPException(status_code=404, detail="Zone not found")
         save_zones(services.zones_file, remaining)
-    services.config.rename_zone_threshold(zone_name, None)
-    services.state.set_zone_threshold(zone_name, None)
+    services.config.rename_zone_rule(zone_name, None)
+    services.state.rename_zone_rule(zone_name, None)
     _audit(services, admin, ip, LogAction.ZONE_DELETED, f"Deleted zone '{zone_name}'")
     return {"success": True}
 
@@ -469,6 +545,7 @@ def acknowledge_alert(
     record = services.audit.acknowledge(alert_id, admin.username)
     if record is None:
         raise HTTPException(status_code=404, detail="Alert not found")
+    services.state.acknowledge_alert(alert_id)
     services.audit.log(
         LogCategory.ALERT,
         LogAction.ALERT_ACKNOWLEDGED,

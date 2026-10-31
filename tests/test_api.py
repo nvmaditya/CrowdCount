@@ -67,6 +67,18 @@ def test_alerts_are_read_only_and_recorded_once(client, admin_headers):
     assert history["count"] == 1  # edge-triggered: one breach, one record
 
 
+def test_has_alerts_counts_only_over_limit(client):
+    client.state.set_global_threshold(10)
+    publish(client.state, 8)
+    data = client.get("/api/alerts").json()
+    assert data["has_alerts"] is False
+    assert data["alerts"]["global"]["level"] == "near"
+    publish(client.state, 11)
+    data = client.get("/api/alerts").json()
+    assert data["has_alerts"] is True
+    assert data["alerts"]["global"]["level"] == "over"
+
+
 def test_images_404_until_frames_exist(client):
     for path in ("/api/heatmap", "/api/snapshot"):
         assert client.get(path).status_code == 404

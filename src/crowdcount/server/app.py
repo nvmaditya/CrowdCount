@@ -54,9 +54,16 @@ app = FastAPI(
 app.include_router(admin_router)
 
 
+def _record_alert_listener(alert):
+    from crowdcount.server.audit import record_alert
+
+    record_alert(alert_type=alert.key, threshold=alert.threshold, actual_count=alert.current)
+
+
 @app.on_event("startup")
 async def _startup_load_thresholds():
     """Load persisted thresholds into shared_state on API startup."""
+    shared_state.add_alert_listener(_record_alert_listener)
     try:
         config = _load_config()
         thresholds = config.get("thresholds", {}) if isinstance(config, dict) else {}
@@ -92,7 +99,7 @@ async def root():
         "status": "running",
         "api": "People Detection API",
         "version": "1.0.0",
-        "detection_running": shared_state.is_detection_running()
+        "detection_running": shared_state.detection_running
     }
 
 
@@ -103,9 +110,9 @@ async def get_count():
     Returns JSON with total count and timestamp.
     """
     return {
-        "total_count": shared_state.get_total_count(),
-        "timestamp": shared_state.get_last_update().isoformat() if shared_state.get_last_update() else None,
-        "detection_running": shared_state.is_detection_running()
+        "total_count": shared_state.total_count,
+        "timestamp": shared_state.last_update,
+        "detection_running": shared_state.detection_running
     }
 
 
@@ -115,10 +122,10 @@ async def get_zones():
     Get zone-wise people counts.
     Returns current count and total unique visitors per zone.
     """
-    zone_data = shared_state.get_zone_counts()
+    zone_data = shared_state.zone_stats()
     return {
         "zones": zone_data,
-        "timestamp": shared_state.get_last_update().isoformat() if shared_state.get_last_update() else None
+        "timestamp": shared_state.last_update
     }
 
 
@@ -132,7 +139,7 @@ async def get_history(limit: int = Query(default=300, ge=1, le=3600)):
     
     Returns timestamped count history for line charts.
     """
-    history = shared_state.get_history(limit)
+    history = shared_state.history(limit)
     return {
         "history": history,
         "count": len(history)
@@ -145,7 +152,7 @@ async def get_heatmap():
     Get heatmap image as PNG.
     Returns a color-coded density heatmap of person positions.
     """
-    heatmap_bytes = shared_state.get_heatmap_image()
+    heatmap_bytes = shared_state.heatmap_jpeg()
     
     if heatmap_bytes is None:
         return JSONResponse(
@@ -155,7 +162,7 @@ async def get_heatmap():
     
     return Response(
         content=heatmap_bytes,
-        media_type="image/png",
+        media_type="image/jpeg",
         headers={"Cache-Control": "no-cache"}
     )
 
@@ -166,12 +173,12 @@ async def get_alerts():
     Get current alert status.
     Returns active alerts if any thresholds are exceeded.
     """
-    alerts = shared_state.check_alerts_and_record()
+    alerts = shared_state.alerts()
     return {
         "alerts": alerts,
         "has_alerts": len(alerts) > 0,
         "global_threshold": shared_state.get_global_threshold(),
-        "total_count": shared_state.get_total_count()
+        "total_count": shared_state.total_count
     }
 
 
@@ -208,7 +215,7 @@ async def get_summary():
     Get complete state summary.
     Useful for initial dashboard load.
     """
-    return shared_state.get_summary()
+    return shared_state.summary()
 
 
 @app.get("/coordinates")
@@ -217,7 +224,7 @@ async def get_coordinates():
     Get current person coordinates.
     Useful for custom visualizations.
     """
-    coords = shared_state.get_coordinates()
+    coords = shared_state.coordinates()
     return {
         "coordinates": [{"x": x, "y": y} for x, y in coords],
         "count": len(coords)
@@ -237,7 +244,7 @@ async def export_csv():
     Export history data as CSV file.
     Includes timestamp, total count, and zone-wise counts.
     """
-    history = shared_state.get_history(limit=3600)  # Get all available history
+    history = shared_state.history(limit=3600)  # Get all available history
     
     if not history:
         return JSONResponse(
@@ -295,8 +302,8 @@ async def export_pdf():
             content={"error": "PDF export not available. Install reportlab: pip install reportlab"}
         )
     
-    history = shared_state.get_history(limit=3600)
-    zone_data = shared_state.get_zone_counts()
+    history = shared_state.history(limit=3600)
+    zone_data = shared_state.zone_stats()
     
     # Calculate statistics
     if history:
@@ -305,7 +312,7 @@ async def export_pdf():
         first_timestamp = history[0]['timestamp'] if history else "N/A"
         last_timestamp = history[-1]['timestamp'] if history else "N/A"
     else:
-        peak_count = shared_state.get_total_count()
+        peak_count = shared_state.total_count
         avg_count = peak_count
         first_timestamp = "N/A"
         last_timestamp = datetime.now().isoformat()
@@ -337,7 +344,7 @@ async def export_pdf():
     elements.append(Paragraph("Summary Statistics", styles['Heading2']))
     summary_data = [
         ["Metric", "Value"],
-        ["Current Count", str(shared_state.get_total_count())],
+        ["Current Count", str(shared_state.total_count)],
         ["Peak Count", str(peak_count)],
         ["Average Count", f"{avg_count:.1f}"],
         ["Data Points", str(len(history))],
@@ -441,10 +448,10 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             # Send current state
             data = {
-                "total_count": shared_state.get_total_count(),
-                "zones": shared_state.get_zone_counts(),
-                "alerts": shared_state.check_alerts(),
-                "timestamp": shared_state.get_last_update().isoformat() if shared_state.get_last_update() else None
+                "total_count": shared_state.total_count,
+                "zones": shared_state.zone_stats(),
+                "alerts": shared_state.alerts(),
+                "timestamp": shared_state.last_update
             }
             await websocket.send_json(data)
             await asyncio.sleep(1)  # Update every second

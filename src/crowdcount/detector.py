@@ -19,6 +19,7 @@ from urllib.request import urlopen
 from urllib.error import URLError
 
 from crowdcount.state import shared_state
+from crowdcount.zones import ZoneStats
 
 try:
     from crowdcount.metrics import MetricsLogger
@@ -200,12 +201,15 @@ class IntegratedPeopleDetector:
         coordinates = [(det['center'][0], det['center'][1]) for det in detections]
         
         # Update shared state atomically
-        shared_state.update_counts(
-            total_count=len(detections),
-            zone_counts=dict(self.zone_current_count),
-            zone_visitors=dict(self.zone_visitors),
-            coordinates=coordinates
-        )
+        zone_stats = {
+            zone.get('name', 'Unnamed'): ZoneStats(
+                current=self.zone_current_count.get(zone.get('name', 'Unnamed'), 0),
+                total_visitors=len(self.zone_visitors.get(zone.get('name', 'Unnamed'), set())),
+            )
+            for zone in self.zones.get('zones', [])
+            if zone.get('enabled', True)
+        }
+        shared_state.publish(total=len(detections), zones=zone_stats, points=coordinates)
     
     def print_zone_statistics(self):
         """Print detailed zone statistics"""
@@ -421,11 +425,7 @@ class IntegratedPeopleDetector:
 
         # Metrics: use SharedState's per-frame timestamp (set during update_shared_state)
         if self._metrics_logger is not None:
-            ts = (
-                shared_state.get_last_update().isoformat()
-                if shared_state.get_last_update()
-                else time.strftime("%Y-%m-%dT%H:%M:%S")
-            )
+            ts = shared_state.last_update or time.strftime("%Y-%m-%dT%H:%M:%S")
             for det in detections:
                 track_id = int(det["id"])
                 self._metrics_logger.log_detection(
@@ -487,8 +487,7 @@ class IntegratedPeopleDetector:
         frame_skip = max(1, int(speed))
         
         # Set frame dimensions in shared state for heatmap
-        shared_state.set_frame_dimensions(self.frame_width, self.frame_height)
-        shared_state.set_detection_running(True)
+        shared_state.begin_run(width=self.frame_width, height=self.frame_height, source=str(video_source))
         
         # Setup video writer if output path specified
         writer = None
@@ -573,9 +572,7 @@ class IntegratedPeopleDetector:
                 fps_inst = (1000.0 / frame_ms) if frame_ms > 0 else 0.0
 
                 if self._metrics_logger is not None:
-                    ts = shared_state.get_last_update().isoformat() if shared_state.get_last_update() else time.strftime(
-                        "%Y-%m-%dT%H:%M:%S"
-                    )
+                    ts = shared_state.last_update or time.strftime("%Y-%m-%dT%H:%M:%S")
                     self._metrics_logger.log_frame_timing(
                         timestamp=ts,
                         frame_index=self.frame_counter,
@@ -612,6 +609,8 @@ class IntegratedPeopleDetector:
                     cv2.putText(annotated_frame, mode_text, (10, 90),
                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
                 
+                shared_state.set_frames(annotated_frame, frame)
+
                 # Write frame to output
                 if writer:
                     writer.write(annotated_frame)
@@ -649,7 +648,7 @@ class IntegratedPeopleDetector:
                     break
         
         finally:
-            shared_state.set_detection_running(False)
+            shared_state.set_status(state="stopped")
             cap.release()
             if writer:
                 writer.release()
@@ -660,7 +659,7 @@ class IntegratedPeopleDetector:
             if self._metrics_logger is not None:
                 try:
                     self._metrics_logger.write_track_summaries()
-                    history = shared_state.get_history(int(history_dump_limit))
+                    history = shared_state.history(int(history_dump_limit))
                     self._metrics_logger.write_history_dump({"history": history, "count": len(history)})
                     self._metrics_logger.close()
                 except Exception as exc:

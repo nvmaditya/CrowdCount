@@ -4,24 +4,17 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from crowdcount.server.app import app
-from crowdcount.state import shared_state
+from crowdcount.state import DEFAULT_GLOBAL_THRESHOLD, shared_state
+from crowdcount.zones import ZoneStats
 
 
 def reset_shared_state() -> None:
     """Reset singleton state between tests to avoid cross-test bleed."""
-    with shared_state._state_lock:
-        shared_state._total_count = 0
-        shared_state._zone_counts = {}
-        shared_state._zone_visitors = {}
-        shared_state._person_coordinates = []
-        shared_state._history.clear()
-        shared_state._heatmap_accumulator = None
-        shared_state._frame_dimensions = (1920, 1080)
-        shared_state._global_threshold = 50
-        shared_state._zone_thresholds = {}
-        shared_state._active_alert_keys = set()
-        shared_state._last_update = None
-        shared_state._detection_running = False
+    shared_state.reset()
+    shared_state.set_global_threshold(DEFAULT_GLOBAL_THRESHOLD)
+    for zone in shared_state.get_zone_thresholds():
+        shared_state.set_zone_threshold(zone, None)
+    shared_state._listeners.clear()
 
 
 class ApiSmokeTests(unittest.TestCase):
@@ -40,15 +33,10 @@ class ApiSmokeTests(unittest.TestCase):
         self.assertEqual(data["version"], "1.0.0")
         self.assertFalse(data["detection_running"])
         self.assertEqual(shared_state.get_global_threshold(), 42)
-        self.assertEqual(shared_state.get_zone_threshold("A"), 7)
+        self.assertEqual(shared_state.get_zone_thresholds(), {"A": 7})
 
     def test_count_and_zones_endpoints(self) -> None:
-        shared_state.update_counts(
-            total_count=3,
-            zone_counts={"Entrance": 2},
-            zone_visitors={"Entrance": {"p1", "p2", "p3"}},
-            coordinates=[(100, 200)],
-        )
+        shared_state.publish(total=3, zones={"Entrance": ZoneStats(current=2, total_visitors=3)}, points=[(100, 200)])
 
         with patch("crowdcount.server.app._load_config", return_value={}):
             with TestClient(app) as client:
@@ -67,15 +55,11 @@ class ApiSmokeTests(unittest.TestCase):
 
     def test_alerts_endpoint_edge_trigger_recording(self) -> None:
         shared_state.set_global_threshold(2)
-        shared_state.update_counts(
-            total_count=3,
-            zone_counts={},
-            zone_visitors={},
-            coordinates=[],
-        )
 
         with patch("crowdcount.server.app._load_config", return_value={}), patch("crowdcount.server.audit.record_alert") as mock_record:
             with TestClient(app) as client:
+                shared_state.publish(total=3, zones={})
+                shared_state.publish(total=4, zones={})
                 first = client.get("/alerts")
                 second = client.get("/alerts")
 
@@ -88,18 +72,8 @@ class ApiSmokeTests(unittest.TestCase):
         self.assertEqual(mock_record.call_count, 1)
 
     def test_export_csv_endpoint_has_expected_columns(self) -> None:
-        shared_state.update_counts(
-            total_count=1,
-            zone_counts={"A": 1},
-            zone_visitors={"A": {"p1"}},
-            coordinates=[],
-        )
-        shared_state.update_counts(
-            total_count=2,
-            zone_counts={"A": 2, "B": 1},
-            zone_visitors={"A": {"p1", "p2"}, "B": {"p2"}},
-            coordinates=[],
-        )
+        shared_state.publish(total=1, zones={"A": ZoneStats(1, 1)})
+        shared_state.publish(total=2, zones={"A": ZoneStats(2, 2), "B": ZoneStats(1, 1)})
 
         with patch("crowdcount.server.app._load_config", return_value={}):
             with TestClient(app) as client:

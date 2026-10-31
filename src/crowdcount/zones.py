@@ -52,10 +52,7 @@ def _on_segment(px: float, py: float, a: Point, b: Point, eps: float = 1e-9) -> 
     cross = (px - x1) * (y2 - y1) - (py - y1) * (x2 - x1)
     if abs(cross) > eps:
         return False
-    return (
-        min(x1, x2) - eps <= px <= max(x1, x2) + eps
-        and min(y1, y2) - eps <= py <= max(y1, y2) + eps
-    )
+    return min(x1, x2) - eps <= px <= max(x1, x2) + eps and min(y1, y2) - eps <= py <= max(y1, y2) + eps
 
 
 def point_in_polygon(point: Point, polygon: Sequence[Point]) -> bool:

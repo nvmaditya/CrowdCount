@@ -1,170 +1,459 @@
-"""
-Run Application - Starts both the API server and detector together
-This script manages both processes for easy startup.
+"""Command-line interface: ``crowdcount <command>``.
+
+Commands:
+    run      detector + web dashboard in one process (the usual way to run CrowdCount)
+    demo     ``run`` on a downloaded sample video with zones drawn for it
+    detect   detector only, with an OpenCV preview window; no web server
+    serve    web dashboard and admin API only (no detector)
+    zones    list, validate or interactively edit zone polygons
 """
 
+from __future__ import annotations
+
+import argparse
+import logging
+import signal
+import socket
 import sys
-import os
 import threading
 import time
-import argparse
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
+
+from crowdcount import __version__
+from crowdcount.config import ConfigError, Settings, cache_dir, load_settings
+from crowdcount.log import setup_logging
+from crowdcount.zones import ZoneConfigError, load_zones, zones_outside_frame
+
+logger = logging.getLogger("crowdcount")
+
+EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_INTERRUPTED = 0, 1, 2, 130
 
 
-def run_api_server(host='0.0.0.0', port=8080):
-    """Run the FastAPI server"""
-    import uvicorn
-    from crowdcount.server.app import app
-    
-    print(f"\n{'='*50}")
-    print(f"Starting API Server on http://{host}:{port}")
-    print(f"Dashboard: http://localhost:{port}/static/index.html")
-    print(f"{'='*50}\n")
-    
-    # Configure uvicorn to be less verbose
-    uvicorn.run(
-        app, 
-        host=host, 
-        port=port, 
-        log_level="warning"
+class PortInUseError(RuntimeError):
+    pass
+
+
+# --------------------------------------------------------------------------- arguments
+
+
+def _add_video_args(p: argparse.ArgumentParser, *, source: bool = True) -> None:
+    g = p.add_argument_group("video")
+    if source:
+        g.add_argument("--source", help="camera index (0), video file, or stream URL (rtsp://, http://)")
+    g.add_argument(
+        "--loop", action=argparse.BooleanOptionalAction, default=None, help="restart video files at the end"
+    )
+    g.add_argument("--stride", type=int, help="process every Nth frame (default: 1)")
+    g.add_argument(
+        "--realtime",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="pace video files at their native frame rate (default: on; off for benchmarks)",
+    )
+    g.add_argument(
+        "--display", action=argparse.BooleanOptionalAction, default=None, help="show an OpenCV preview window"
+    )
+    g.add_argument("--output", type=Path, help="save the annotated video to this .mp4 file")
+    g.add_argument("--max-frames", type=int, help="stop after processing this many frames")
+    g.add_argument(
+        "--metrics-out", type=Path, help="write per-frame CSV metrics and a run summary to this directory"
     )
 
 
-def run_detector(video_source, model_path, zones_file, display,
-                 conf_threshold=0.5, min_box_area=1500, iou_threshold=0.5, speed=1.0,
-                 dashboard_port=8080, metrics_out_dir=None, max_frames=None):
-    """Run the people detector"""
-    from crowdcount.detector import IntegratedPeopleDetector
-    
-    print(f"\n{'='*50}")
-    print(f"Starting People Detection")
-    print(f"Video source: {video_source}")
-    print(f"Model: {model_path}")
-    print(f"Confidence: {conf_threshold} | Min Area: {min_box_area}")
-    print(f"Speed: {speed}x")
-    print(f"{'='*50}\n")
-
-    # Share dashboard URL with detector so it prints the correct endpoint.
-    os.environ["DASHBOARD_URL"] = f"http://localhost:{dashboard_port}/static/index.html"
-    
-    # Small delay to let server start
-    time.sleep(2)
-    
-    detector = IntegratedPeopleDetector(
-        model_path=model_path, 
-        zones_file=zones_file,
-        conf_threshold=conf_threshold,
-        min_box_area=min_box_area,
-        iou_threshold=iou_threshold
+def _add_detection_args(p: argparse.ArgumentParser) -> None:
+    g = p.add_argument_group("detection")
+    g.add_argument(
+        "--model", help="YOLO weights: stock name (yolov8n.pt ... yolov8x.pt) or path (default: yolov8m.pt)"
     )
-    detector.process_video(
-        video_source=video_source,
-        output_path=None,
-        display=display,
-        speed=speed,
-        metrics_out_dir=metrics_out_dir,
-        max_frames=max_frames,
+    g.add_argument("--device", help="auto, cpu, mps, cuda:0 ... (default: auto)")
+    g.add_argument("--tracker", help="bytetrack, botsort, or a tracker YAML path (default: bytetrack)")
+    g.add_argument(
+        "--conf", dest="confidence", type=float, help="minimum detection confidence 0-1 (default: 0.5)"
+    )
+    g.add_argument("--iou", type=float, help="NMS IoU threshold (default: 0.5)")
+    g.add_argument(
+        "--min-area", dest="min_box_area", type=int, help="minimum box area in pixels (default: 1500)"
+    )
+    g.add_argument("--zones", dest="zones_file", type=Path, help="zones JSON file (default: zones.json)")
+
+
+def _add_server_args(p: argparse.ArgumentParser) -> None:
+    g = p.add_argument_group("server")
+    g.add_argument(
+        "--host", help="interface to bind (default: 127.0.0.1; use 0.0.0.0 to expose on your network)"
+    )
+    g.add_argument("--port", type=int, help="HTTP port (default: 8080)")
+    g.add_argument(
+        "--data-dir", type=Path, help="where users, settings and logs are stored (default: ./data)"
     )
 
 
-def main():
-    """Main entry point - runs both server and detector"""
+def _add_common_args(p: argparse.ArgumentParser, *, suppress: bool = False) -> None:
+    default = argparse.SUPPRESS if suppress else None
+    p.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        default=default,
+        help="path to crowdcount.toml (default: ./crowdcount.toml if present)",
+    )
+    p.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        default=argparse.SUPPRESS if suppress else False,
+        help="debug logging",
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description='People Detection Dashboard - Run API and Detector together',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python run_app.py                           # Run with defaults
-  python run_app.py --source 0                # Use webcam
-  python run_app.py --source video.mp4        # Use video file
-  python run_app.py --port 8080               # Use different port
-  python run_app.py --detector-only           # Run only detector
-  python run_app.py --server-only             # Run only server
-        """
+        prog="crowdcount",
+        description="Real-time crowd monitoring: YOLOv8 detection, tracking, polygon zones and a live dashboard.",
     )
-    
-    parser.add_argument('--source', type=str, default='Camera-Video.mp4',
-                       help='Video source (0 for webcam, or path to video file)')
-    parser.add_argument('--model', type=str, default='yolov8m.pt',
-                       help='YOLOv8 model path (use yolov8m.pt or larger for accuracy)')
-    parser.add_argument('--zones', type=str, default='zones.json',
-                       help='Path to zones configuration file')
-    parser.add_argument('--host', type=str, default='0.0.0.0',
-                       help='API server host')
-    parser.add_argument('--port', type=int, default=8080,
-                       help='API server port')
-    parser.add_argument('--no-display', action='store_true',
-                       help='Disable video display window')
-    parser.add_argument('--server-only', action='store_true',
-                       help='Run only the API server')
-    parser.add_argument('--detector-only', action='store_true',
-                       help='Run only the detector')
-    
-    # Detection quality parameters
-    parser.add_argument('--conf', type=float, default=0.5,
-                       help='Confidence threshold 0.0-1.0 (higher = fewer false positives)')
-    parser.add_argument('--min-area', type=int, default=1500,
-                       help='Minimum bounding box area in pixels')
-    parser.add_argument('--iou', type=float, default=0.5,
-                       help='IoU threshold for NMS')
-    
-    # Speed control
-    parser.add_argument('--speed', type=float, default=1.0,
-                       help='Video playback speed multiplier (e.g., 2.0 for 2x speed)')
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    _add_common_args(parser)
+    common = argparse.ArgumentParser(add_help=False)
+    _add_common_args(common, suppress=True)  # also accept -v/--config after the command
+    sub = parser.add_subparsers(dest="command", metavar="<command>", required=True)
+    _real_add_parser = sub.add_parser
 
-    # Metrics logging (for paper plots)
-    parser.add_argument('--metrics-out', type=str, default=None,
-                       help='Directory to write run metrics CSV/JSON (confidence, FPS, zones, track lifetimes)')
-    parser.add_argument('--max-frames', type=int, default=None,
-                       help='Stop after this many processed frames (after frame skipping)')
-    
-    args = parser.parse_args()
-    
-    # Convert source to int if it's a number (camera index)
-    try:
-        video_source = int(args.source)
-    except ValueError:
-        video_source = args.source
-    
-    print("""
-    ╔══════════════════════════════════════════════════════════════╗
-    ║           PEOPLE DETECTION DASHBOARD                         ║
-    ║                                                              ║
-    ║  This application runs:                                      ║
-    ║  1. FastAPI backend server (for dashboard data)              ║
-    ║  2. People detection with YOLOv8 (updates shared state)      ║
-    ║                                                              ║
-    ║  Dashboard URL: http://localhost:{port}/static/index.html    ║
-    ╚══════════════════════════════════════════════════════════════╝
-    """.format(port=args.port))
-    
-    if args.server_only:
-        # Run only the server
-        run_api_server(host=args.host, port=args.port)
-    elif args.detector_only:
-        # Run only the detector
-        run_detector(video_source, args.model, args.zones, not args.no_display,
-                     args.conf, args.min_area, args.iou, args.speed,
-                     8080, args.metrics_out, args.max_frames)
-    else:
-        # Run both - server in background thread, detector in main thread
-        server_thread = threading.Thread(
-            target=run_api_server,
-            args=(args.host, args.port),
-            daemon=True
-        )
-        server_thread.start()
-        
-        # Run detector in main thread (needs to handle OpenCV window)
+    def add_parser(name: str, **kwargs: Any) -> argparse.ArgumentParser:
+        return _real_add_parser(name, parents=[common], **kwargs)
+
+    sub.add_parser = add_parser  # type: ignore[method-assign]
+
+    run = sub.add_parser("run", help="run the detector and the web dashboard together")
+    _add_video_args(run)
+    _add_detection_args(run)
+    _add_server_args(run)
+    run.set_defaults(func=cmd_run)
+
+    demo = sub.add_parser("demo", help="run on a sample video (downloaded once) with ready-made zones")
+    _add_video_args(demo, source=False)
+    _add_detection_args(demo)
+    _add_server_args(demo)
+    demo.set_defaults(func=cmd_demo)
+
+    detect = sub.add_parser("detect", help="run the detector only, with a preview window")
+    _add_video_args(detect)
+    _add_detection_args(detect)
+    detect.set_defaults(func=cmd_detect)
+
+    serve = sub.add_parser("serve", help="run only the web dashboard and admin API")
+    _add_server_args(serve)
+    serve.add_argument(
+        "--zones", dest="zones_file", type=Path, help="zones JSON file edited from the admin panel"
+    )
+    serve.set_defaults(func=cmd_serve)
+
+    zones = sub.add_parser("zones", help="list, validate or edit zones")
+    zsub = zones.add_subparsers(dest="zones_command", metavar="<action>", required=True)
+    _real_zadd = zsub.add_parser
+    zsub.add_parser = lambda name, **kw: _real_zadd(name, parents=[common], **kw)  # type: ignore[method-assign]
+    zl = zsub.add_parser("list", help="print the zones in a zones file")
+    zl.set_defaults(func=cmd_zones_list)
+    zv = zsub.add_parser("validate", help="check a zones file (and optionally that it fits a source's frame)")
+    zv.add_argument("--source", help="also check zone bounds against this source's frame size")
+    zv.set_defaults(func=cmd_zones_validate)
+    ze = zsub.add_parser("edit", help="draw zones on frames from a camera or video")
+    ze.add_argument("--source", help="camera index, video file or stream URL to draw on")
+    ze.set_defaults(func=cmd_zones_edit)
+    for zp in (zl, zv, ze):
+        zp.add_argument("--zones", dest="zones_file", type=Path, help="zones JSON file (default: zones.json)")
+    return parser
+
+
+_SETTING_KEYS = {
+    "source",
+    "loop",
+    "stride",
+    "realtime",
+    "model",
+    "device",
+    "tracker",
+    "confidence",
+    "iou",
+    "min_box_area",
+    "zones_file",
+    "host",
+    "port",
+    "data_dir",
+}
+
+
+def _settings(args: argparse.Namespace, extra: dict[str, Any] | None = None) -> Settings:
+    overrides = {
+        **(extra or {}),
+        **{k: v for k, v in vars(args).items() if k in _SETTING_KEYS and v is not None},
+    }
+    return load_settings(args.config, overrides)
+
+
+def _dashboard_url(host: str, port: int) -> str:
+    shown = "localhost" if host in ("0.0.0.0", "::", "") else host
+    return f"http://{shown}:{port}/"
+
+
+# --------------------------------------------------------------------------- server
+
+
+def _ensure_port_free(host: str, port: int) -> None:
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(family, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
-            run_detector(video_source, args.model, args.zones, not args.no_display,
-                         args.conf, args.min_area, args.iou, args.speed, args.port,
-                         args.metrics_out, args.max_frames)
-        except KeyboardInterrupt:
-            print("\nShutting down...")
-        
-        print("Application stopped.")
+            s.bind((host, port))
+        except OSError as exc:
+            raise PortInUseError(
+                f"cannot listen on {host}:{port} ({exc.strerror}). Is another server running? Try --port."
+            ) from exc
 
 
-if __name__ == '__main__':
-    main()
+class _ServerThread:
+    """Uvicorn in a background thread, so OpenCV can own the main thread."""
+
+    def __init__(self, app: Any, host: str, port: int) -> None:
+        import uvicorn
+
+        config = uvicorn.Config(app, host=host, port=port, log_level="warning", timeout_graceful_shutdown=2)
+        self.server = uvicorn.Server(config)
+        self.thread = threading.Thread(target=self.server.run, name="crowdcount-server", daemon=True)
+
+    def start(self, timeout: float = 15.0) -> None:
+        self.thread.start()
+        deadline = time.monotonic() + timeout
+        while not self.server.started:
+            if not self.thread.is_alive() or time.monotonic() > deadline:
+                raise RuntimeError("web server failed to start; see the log above")
+            time.sleep(0.05)
+
+    def wait(self) -> None:
+        while self.thread.is_alive():
+            self.thread.join(0.5)
+
+    def stop(self) -> None:
+        self.server.should_exit = True
+        self.thread.join(5)
+
+
+def _make_app(settings: Settings) -> Any:
+    from crowdcount.server.app import app
+
+    return app
+
+
+# --------------------------------------------------------------------------- detection
+
+
+def _resolve_source(settings: Settings) -> str:
+    if settings.source == "demo":
+        from crowdcount.demo import ensure_demo_video
+
+        return str(ensure_demo_video(cache_dir()))
+    return settings.source
+
+
+def _run_detection(
+    settings: Settings, args: argparse.Namespace, *, with_server: bool, display_default: bool
+) -> int:
+    from crowdcount.detector import DetectionFilter, PersonDetector
+    from crowdcount.pipeline import Pipeline, PipelineOptions
+    from crowdcount.state import shared_state
+    from crowdcount.video import VideoSource
+
+    load_zones(settings.zones_file)  # fail fast on a malformed zones file
+    source = VideoSource(_resolve_source(settings), loop=settings.loop).open()
+
+    server = None
+    if with_server:
+        _ensure_port_free(settings.host, settings.port)
+        server = _ServerThread(_make_app(settings), settings.host, settings.port)
+        server.start()
+        shared_state.set_status(state="starting", source=source.label)
+        logger.info("Dashboard: %s", _dashboard_url(settings.host, settings.port))
+
+    try:
+        detector = PersonDetector(
+            settings.model,
+            device=settings.device,
+            tracker=settings.tracker,
+            iou=settings.iou,
+            detection_filter=DetectionFilter(
+                confidence=settings.confidence,
+                min_box_area=settings.min_box_area,
+                min_aspect_ratio=settings.min_aspect_ratio,
+                max_aspect_ratio=settings.max_aspect_ratio,
+            ),
+            models_dir=cache_dir() / "models",
+        )
+        options = PipelineOptions(
+            stride=settings.stride,
+            realtime=settings.realtime,
+            display=display_default if args.display is None else args.display,
+            output=args.output,
+            max_frames=args.max_frames,
+            metrics_out=args.metrics_out,
+        )
+        pipeline = Pipeline(
+            detector,
+            source,
+            settings.zones_file,
+            shared_state,
+            options,
+            info={"model": detector.model_name, "tracker": detector.tracker_name, "device": detector.device},
+        )
+        summary = pipeline.run()
+        logger.info(
+            "Detection stopped (%s): %d frames processed, %.1f fps mean processing rate",
+            summary.stopped_by,
+            summary.frames_processed,
+            summary.mean_fps,
+        )
+        if server is not None and summary.stopped_by in ("eof", "max_frames"):
+            logger.info(
+                "Dashboard still available at %s; press Ctrl+C to exit",
+                _dashboard_url(settings.host, settings.port),
+            )
+            server.wait()
+    except Exception:
+        shared_state.set_status(state="error")
+        raise
+    finally:
+        source.release()
+        if server is not None:
+            server.stop()
+    return EXIT_OK
+
+
+# --------------------------------------------------------------------------- commands
+
+
+def cmd_run(args: argparse.Namespace) -> int:
+    return _run_detection(_settings(args), args, with_server=True, display_default=False)
+
+
+def cmd_demo(args: argparse.Namespace) -> int:
+    from crowdcount.demo import DEMO_SETTINGS, ensure_demo_zones
+
+    base = _settings(args)
+    zones_file = args.zones_file or base.data_dir / "demo-zones.json"
+    ensure_demo_zones(zones_file)
+    settings = _settings(args, {**DEMO_SETTINGS, "source": "demo", "zones_file": zones_file})
+    return _run_detection(settings, args, with_server=True, display_default=False)
+
+
+def cmd_detect(args: argparse.Namespace) -> int:
+    return _run_detection(_settings(args), args, with_server=False, display_default=True)
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    settings = _settings(args)
+    _ensure_port_free(settings.host, settings.port)
+    logger.info(
+        "Dashboard: %s (no detector running in this process)", _dashboard_url(settings.host, settings.port)
+    )
+    uvicorn.run(
+        _make_app(settings),
+        host=settings.host,
+        port=settings.port,
+        log_level="warning",
+        timeout_graceful_shutdown=2,
+    )
+    return EXIT_OK
+
+
+def cmd_zones_list(args: argparse.Namespace) -> int:
+    settings = _settings(args)
+    zones = load_zones(settings.zones_file)
+    if not zones:
+        print(f"No zones in {settings.zones_file}")
+        return EXIT_OK
+    print(f"{len(zones)} zone(s) in {settings.zones_file}:")
+    width = max(len(z.name) for z in zones)
+    for z in zones:
+        x1, y1, x2, y2 = z.bounds
+        state = "enabled" if z.enabled else "disabled"
+        print(
+            f"  {z.name:<{width}}  {len(z.points):>2} points  {state:<8}  bounds ({x1},{y1})-({x2},{y2})  rgb{z.color}"
+        )
+    return EXIT_OK
+
+
+def cmd_zones_validate(args: argparse.Namespace) -> int:
+    settings = _settings(args)
+    zones = load_zones(settings.zones_file)
+    print(f"OK: {len(zones)} valid zone(s) in {settings.zones_file}")
+    if args.source is not None:
+        from crowdcount.video import VideoSource
+
+        with VideoSource(_resolve_source(load_settings(args.config, {"source": args.source}))) as src:
+            outside = zones_outside_frame(zones, src.width, src.height)
+        if outside:
+            print(
+                f"Warning: {', '.join(outside)} extend beyond the {src.width}x{src.height} frame of {src.label}"
+            )
+            return EXIT_ERROR
+        print(f"All zones fit the {src.width}x{src.height} frame of {src.label}")
+    return EXIT_OK
+
+
+def cmd_zones_edit(args: argparse.Namespace) -> int:
+    from crowdcount.editor import run_editor
+    from crowdcount.video import VideoSource
+
+    overrides = {"source": args.source} if args.source is not None else {}
+    settings = _settings(args, overrides)
+    run_editor(VideoSource(_resolve_source(settings)), settings.zones_file)
+    return EXIT_OK
+
+
+# --------------------------------------------------------------------------- entry point
+
+
+def _graceful_signals() -> None:
+    """Treat SIGTERM (``docker stop``, ``kill``) like Ctrl+C so cleanup always runs.
+
+    Also re-enables SIGINT if a parent shell started us with it ignored.
+    """
+
+    def _interrupt(signum: int, _frame: object) -> None:
+        raise KeyboardInterrupt
+
+    if threading.current_thread() is threading.main_thread():
+        signal.signal(signal.SIGTERM, _interrupt)
+        signal.signal(signal.SIGINT, _interrupt)
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Entry point for the ``crowdcount`` script. Returns the process exit code."""
+    args = build_parser().parse_args(argv)
+    setup_logging(args.verbose)
+    _graceful_signals()
+
+    from crowdcount.demo import DemoAssetError
+    from crowdcount.detector import ModelLoadError
+    from crowdcount.video import VideoSourceError
+
+    try:
+        return int(args.func(args) or EXIT_OK)
+    except KeyboardInterrupt:
+        logger.info("Interrupted")
+        return EXIT_INTERRUPTED
+    except (ConfigError, ZoneConfigError) as exc:
+        logger.error("%s", exc)
+        return EXIT_USAGE
+    except (VideoSourceError, ModelLoadError, DemoAssetError, PortInUseError, ValueError, OSError) as exc:
+        if args.verbose:
+            logger.exception("Fatal error")
+        else:
+            logger.error("%s", exc)
+        return EXIT_ERROR
+
+
+if __name__ == "__main__":
+    sys.exit(main())

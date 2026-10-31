@@ -1,313 +1,197 @@
+"""Interactive OpenCV zone editor (``crowdcount zones edit``).
+
+Draw polygons on frames from a camera or video. Changes are saved to the zones file,
+which a running detector picks up automatically. The admin panel offers the same in a
+browser.
 """
-Zone Manager - Interactive tool to create and edit polygonal zones
-Allows drawing zones on video frames and saving to zones.json
-"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
 
 import cv2
 import numpy as np
-import json
-from pathlib import Path
+
+from crowdcount.annotate import draw_hud, draw_zones, label, to_bgr
+from crowdcount.video import VideoSource
+from crowdcount.zones import ZONE_PALETTE, Zone, ZoneStats, load_zones, save_zones
+
+logger = logging.getLogger(__name__)
+
+WINDOW_TITLE = "CrowdCount zone editor"
+HELP = [
+    "Left click: add point   Right click: finish zone   Middle click / u: undo point",
+    "s: save   c: clear points   d: delete zone   t: toggle zone   l: list   q: quit",
+]
+_DRAFT_COLOR = (0, 220, 255)
 
 
-class ZoneManager:
-    def __init__(self, zones_file='zones.json'):
-        """
-        Initialize the zone manager
-        
-        Args:
-            zones_file: Path to zones configuration JSON file
-        """
-        self.zones_file = zones_file
-        self.zones = self.load_zones()
-        self.current_zone_points = []
-        self.drawing = False
-        self.current_frame = None
-        self.zone_colors = [
-            (0, 255, 0),    # Green
-            (255, 0, 0),    # Blue
-            (0, 0, 255),    # Red
-            (255, 255, 0),  # Cyan
-            (255, 0, 255),  # Magenta
-            (0, 255, 255),  # Yellow
-        ]
-        
-    def load_zones(self):
-        """Load zones from JSON file"""
-        zones_path = Path(self.zones_file)
-        if zones_path.exists():
-            with open(zones_path, 'r') as f:
-                return json.load(f)
-        return {"zones": []}
-    
-    def save_zones(self):
-        """Save zones to JSON file"""
-        with open(self.zones_file, 'w') as f:
-            json.dump(self.zones, f, indent=2)
-        print(f"Zones saved to {self.zones_file}")
-    
-    def draw_zones(self, frame):
-        """Draw all existing zones on the frame"""
-        overlay = frame.copy()
-        
-        for idx, zone in enumerate(self.zones.get('zones', [])):
-            points = np.array(zone['points'], dtype=np.int32)
-            color = tuple(zone.get('color', [0, 255, 0]))
-            
-            # Draw filled polygon with transparency
-            cv2.fillPoly(overlay, [points], color)
-            
-            # Draw polygon border
-            cv2.polylines(frame, [points], True, color, 2)
-            
-            # Draw zone vertices
-            for point in points:
-                cv2.circle(frame, tuple(point), 5, color, -1)
-            
-            # Draw zone name and index
-            if 'name' in zone:
-                centroid = points.mean(axis=0).astype(int)
-                label = f"{idx}: {zone['name']}"
-                cv2.putText(frame, label, tuple(centroid),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
-        
-        # Blend overlay with frame for transparency effect
-        cv2.addWeighted(overlay, 0.3, frame, 0.7, 0, frame)
-        
-        return frame
-    
-    def draw_current_zone(self, frame):
-        """Draw the zone currently being created"""
-        if len(self.current_zone_points) > 0:
-            # Draw points
-            for point in self.current_zone_points:
-                cv2.circle(frame, tuple(point), 5, (0, 255, 255), -1)
-            
-            # Draw lines connecting points
-            if len(self.current_zone_points) > 1:
-                points = np.array(self.current_zone_points, dtype=np.int32)
-                cv2.polylines(frame, [points], False, (0, 255, 255), 2)
-            
-            # Draw line from last point to cursor (if drawing)
-            if self.drawing and len(self.current_zone_points) > 0:
-                pass  # Will be handled by mouse callback
-        
-        return frame
-    
-    def mouse_callback(self, event, x, y, flags, param):
-        """Handle mouse events for zone creation"""
+class ZoneEditor:
+    """State and event handling for the OpenCV zone editor."""
+
+    def __init__(self, zones_file: Path) -> None:
+        self.zones_file = Path(zones_file)
+        self.zones: list[Zone] = load_zones(self.zones_file)
+        self.draft: list[tuple[int, int]] = []
+        self.dirty = False
+
+    # -- editing ---------------------------------------------------------------
+
+    def add_point(self, x: int, y: int) -> None:
+        self.draft.append((x, y))
+
+    def undo_point(self) -> None:
+        if self.draft:
+            self.draft.pop()
+
+    def finish_zone(self, name: str | None = None) -> Zone | None:
+        """Turn the draft into a zone. Returns ``None`` if it has fewer than 3 points."""
+        if len(self.draft) < 3:
+            logger.warning("A zone needs at least 3 points (have %d)", len(self.draft))
+            return None
+        existing = {z.name for z in self.zones}
+        name = (name or "").strip() or self._default_name(existing)
+        if name in existing:
+            logger.warning("Zone '%s' already exists; pick another name", name)
+            return None
+        zone = Zone(name, list(self.draft), ZONE_PALETTE[len(self.zones) % len(ZONE_PALETTE)])
+        self.zones.append(zone)
+        self.draft.clear()
+        self.dirty = True
+        logger.info("Created zone '%s' with %d points", zone.name, len(zone.points))
+        return zone
+
+    def delete_zone(self, index: int) -> None:
+        if 0 <= index < len(self.zones):
+            logger.info("Deleted zone '%s'", self.zones.pop(index).name)
+            self.dirty = True
+        else:
+            logger.warning("No zone with index %d", index)
+
+    def toggle_zone(self, index: int) -> None:
+        if 0 <= index < len(self.zones):
+            zone = self.zones[index]
+            zone.enabled = not zone.enabled
+            self.dirty = True
+            logger.info("Zone '%s' %s", zone.name, "enabled" if zone.enabled else "disabled")
+        else:
+            logger.warning("No zone with index %d", index)
+
+    def save(self) -> None:
+        save_zones(self.zones_file, self.zones)
+        self.dirty = False
+        logger.info("Saved %d zone(s) to %s", len(self.zones), self.zones_file)
+
+    @staticmethod
+    def _default_name(existing: set[str]) -> str:
+        i = 1
+        while f"Zone {i}" in existing:
+            i += 1
+        return f"Zone {i}"
+
+    # -- UI ----------------------------------------------------------------------
+
+    def render(self, frame: np.ndarray) -> np.ndarray:
+        out = frame.copy()
+        draw_zones(out, self.zones, {z.name: ZoneStats(0, 0) for z in self.zones}, alpha=0.25)
+        for i, zone in enumerate(self.zones):
+            if not zone.enabled:
+                pts = np.array(zone.points, np.int32)
+                cv2.polylines(out, [pts], True, (128, 128, 128), 1, cv2.LINE_AA)
+                x, y, _, _ = zone.bounds
+                label(out, f"[{i}] {zone.name} (disabled)", (x + 4, y + 24), (90, 90, 90))
+        if self.draft:
+            pts = np.array(self.draft, np.int32)
+            cv2.polylines(out, [pts], len(self.draft) > 2, _DRAFT_COLOR, 2, cv2.LINE_AA)
+            for p in self.draft:
+                cv2.circle(out, p, 4, _DRAFT_COLOR, -1, cv2.LINE_AA)
+        status = f"{len(self.zones)} zone(s)  draft: {len(self.draft)} point(s)" + (
+            "  [unsaved]" if self.dirty else ""
+        )
+        draw_hud(out, [status, *HELP])
+        return out
+
+    def on_mouse(self, event: int, x: int, y: int, _flags: int, _param: object) -> None:
         if event == cv2.EVENT_LBUTTONDOWN:
-            # Add point to current zone
-            self.current_zone_points.append([x, y])
-            print(f"Point added: ({x}, {y}) - Total points: {len(self.current_zone_points)}")
-            
+            self.add_point(x, y)
         elif event == cv2.EVENT_RBUTTONDOWN:
-            # Finish current zone
-            if len(self.current_zone_points) >= 3:
-                self.finish_zone()
+            if len(self.draft) >= 3:
+                self.finish_zone(_prompt("Zone name (Enter for default): "))
             else:
-                print("Need at least 3 points to create a zone!")
-        
+                logger.warning("A zone needs at least 3 points")
         elif event == cv2.EVENT_MBUTTONDOWN:
-            # Remove last point
-            if len(self.current_zone_points) > 0:
-                removed = self.current_zone_points.pop()
-                print(f"Removed last point: {removed}")
-    
-    def finish_zone(self):
-        """Finish creating the current zone and add it to zones list"""
-        zone_name = input("\nEnter zone name: ")
-        
-        # Get color for this zone
-        color_idx = len(self.zones['zones']) % len(self.zone_colors)
-        color = self.zone_colors[color_idx]
-        
-        # Create zone dictionary
-        new_zone = {
-            'name': zone_name,
-            'points': self.current_zone_points,
-            'color': list(color),
-            'enabled': True
-        }
-        
-        self.zones['zones'].append(new_zone)
-        print(f"Zone '{zone_name}' created with {len(self.current_zone_points)} points")
-        
-        # Reset current zone
-        self.current_zone_points = []
-    
-    def delete_zone(self, zone_index):
-        """Delete a zone by index"""
-        if 0 <= zone_index < len(self.zones['zones']):
-            removed = self.zones['zones'].pop(zone_index)
-            print(f"Deleted zone: {removed.get('name', 'Unnamed')}")
-        else:
-            print(f"Invalid zone index: {zone_index}")
-    
-    def toggle_zone(self, zone_index):
-        """Enable/disable a zone by index"""
-        if 0 <= zone_index < len(self.zones['zones']):
-            zone = self.zones['zones'][zone_index]
-            zone['enabled'] = not zone.get('enabled', True)
-            status = "enabled" if zone['enabled'] else "disabled"
-            print(f"Zone '{zone.get('name', 'Unnamed')}' {status}")
-        else:
-            print(f"Invalid zone index: {zone_index}")
-    
-    def list_zones(self):
-        """Print list of all zones"""
-        print("\n=== Current Zones ===")
-        if not self.zones['zones']:
-            print("No zones defined")
-        else:
-            for idx, zone in enumerate(self.zones['zones']):
-                status = "enabled" if zone.get('enabled', True) else "disabled"
-                points_count = len(zone.get('points', []))
-                print(f"{idx}: {zone.get('name', 'Unnamed')} ({points_count} points, {status})")
-        print("====================\n")
-    
-    def edit_zones_interactive(self, video_source=0):
-        """
-        Interactive zone editor using video feed
-        
-        Args:
-            video_source: Video file path or camera index (0 for webcam)
-        """
-        cap = cv2.VideoCapture(video_source)
-        
-        if not cap.isOpened():
-            print(f"Error: Cannot open video source {video_source}")
-            return
-        
-        window_name = 'Zone Editor'
-        cv2.namedWindow(window_name)
-        cv2.setMouseCallback(window_name, self.mouse_callback)
-        
-        print("\n=== Zone Editor ===")
-        print("Controls:")
-        print("  Left Click: Add point to zone")
-        print("  Right Click: Finish current zone")
-        print("  Middle Click: Remove last point")
-        print("  's': Save zones to file")
-        print("  'c': Clear current zone")
-        print("  'd': Delete zone (enter index)")
-        print("  't': Toggle zone on/off (enter index)")
-        print("  'l': List all zones")
-        print("  'q': Quit")
-        print("===================\n")
-        
-        try:
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    # If video ends, loop back to start
-                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    continue
-                
-                self.current_frame = frame.copy()
-                
-                # Draw existing zones
-                display_frame = self.draw_zones(frame.copy())
-                
-                # Draw current zone being created
-                display_frame = self.draw_current_zone(display_frame)
-                
-                # Add instructions
-                instructions = f"Points: {len(self.current_zone_points)}"
-                cv2.putText(display_frame, instructions, (10, 30),
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                
-                cv2.imshow(window_name, display_frame)
-                
-                key = cv2.waitKey(1) & 0xFF
-                
-                if key == ord('q'):
-                    print("Quitting zone editor...")
-                    break
-                    
-                elif key == ord('s'):
-                    self.save_zones()
-                    
-                elif key == ord('c'):
-                    self.current_zone_points = []
-                    print("Current zone cleared")
-                    
-                elif key == ord('d'):
-                    self.list_zones()
-                    try:
-                        idx = int(input("Enter zone index to delete: "))
-                        self.delete_zone(idx)
-                    except (ValueError, KeyboardInterrupt):
-                        print("Cancelled")
-                        
-                elif key == ord('t'):
-                    self.list_zones()
-                    try:
-                        idx = int(input("Enter zone index to toggle: "))
-                        self.toggle_zone(idx)
-                    except (ValueError, KeyboardInterrupt):
-                        print("Cancelled")
-                        
-                elif key == ord('l'):
-                    self.list_zones()
-        
-        finally:
-            cap.release()
-            cv2.destroyAllWindows()
-    
-    def create_zone_from_coordinates(self, name, points, color=None, enabled=True):
-        """
-        Programmatically create a zone from coordinates
-        
-        Args:
-            name: Zone name
-            points: List of [x, y] coordinates
-            color: RGB color tuple (default: auto-assigned)
-            enabled: Whether zone is active
-        """
-        if color is None:
-            color_idx = len(self.zones['zones']) % len(self.zone_colors)
-            color = self.zone_colors[color_idx]
-        
-        new_zone = {
-            'name': name,
-            'points': points,
-            'color': list(color),
-            'enabled': enabled
-        }
-        
-        self.zones['zones'].append(new_zone)
-        print(f"Zone '{name}' created with {len(points)} points")
+            self.undo_point()
+
+    def list_zones(self) -> None:
+        if not self.zones:
+            logger.info("No zones defined")
+        for i, z in enumerate(self.zones):
+            logger.info(
+                "[%d] %s: %d points, %s, colour %s",
+                i,
+                z.name,
+                len(z.points),
+                "enabled" if z.enabled else "disabled",
+                to_bgr(z.color)[::-1],
+            )
 
 
-def main():
-    """Main function to run zone manager"""
-    import argparse
-    
-    parser = argparse.ArgumentParser(description='Zone Manager - Create and edit detection zones')
-    parser.add_argument('--source', type=str, default='Camera-Video.mp4',
-                       help='Video source (0 for webcam, or path to video file)')
-    parser.add_argument('--zones', type=str, default='zones.json',
-                       help='Path to zones configuration file')
-    parser.add_argument('--mode', type=str, default='interactive',
-                       choices=['interactive', 'list'],
-                       help='Mode: interactive editor or list zones')
-    
-    args = parser.parse_args()
-    
-    # Convert source to int if it's a number (camera index)
+def _prompt(text: str) -> str:
     try:
-        video_source = int(args.source)
-    except ValueError:
-        video_source = args.source
-    
-    # Initialize zone manager
-    manager = ZoneManager(zones_file=args.zones)
-    
-    if args.mode == 'interactive':
-        manager.edit_zones_interactive(video_source=video_source)
-    elif args.mode == 'list':
-        manager.list_zones()
+        return input(text)
+    except (EOFError, KeyboardInterrupt):
+        return ""
 
 
-if __name__ == '__main__':
-    main()
+def _prompt_index(text: str) -> int | None:
+    raw = _prompt(text).strip()
+    return int(raw) if raw.lstrip("-").isdigit() else None
+
+
+def run_editor(source: VideoSource, zones_file: Path) -> None:
+    """Open the editor window on ``source`` (looped) until the user quits."""
+    editor = ZoneEditor(zones_file)
+    source.loop = True
+    source.open()
+    logger.info(
+        "Editing %s on %s (%dx%d). Close with q.", zones_file, source.label, source.width, source.height
+    )
+    cv2.namedWindow(WINDOW_TITLE, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(WINDOW_TITLE, source.width, source.height)
+    cv2.setMouseCallback(WINDOW_TITLE, editor.on_mouse)
+    frame = source.read()
+    try:
+        while frame is not None:
+            # Cameras and streams stay live; files show their first frame as a still backdrop.
+            if source.live and (latest := source.read()) is not None:
+                frame = latest
+            cv2.imshow(WINDOW_TITLE, editor.render(frame))
+            key = cv2.waitKey(30) & 0xFF
+            if key in (ord("q"), 27):
+                if (
+                    editor.dirty
+                    and _prompt("Unsaved changes. Save before quitting? [Y/n] ").strip().lower() != "n"
+                ):
+                    editor.save()
+                break
+            if key == ord("s"):
+                editor.save()
+            elif key == ord("c"):
+                editor.draft.clear()
+            elif key == ord("u"):
+                editor.undo_point()
+            elif key == ord("l"):
+                editor.list_zones()
+            elif key == ord("d"):
+                editor.list_zones()
+                if (idx := _prompt_index("Delete zone index: ")) is not None:
+                    editor.delete_zone(idx)
+            elif key == ord("t"):
+                editor.list_zones()
+                if (idx := _prompt_index("Toggle zone index: ")) is not None:
+                    editor.toggle_zone(idx)
+    finally:
+        source.release()
+        cv2.destroyAllWindows()
+        cv2.waitKey(1)

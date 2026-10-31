@@ -1,23 +1,21 @@
-"""Run-metrics logging for paper/analysis.
+"""Per-run metrics export (``--metrics-out DIR``) for benchmarking and analysis.
 
-This module is intentionally dependency-light (stdlib only) so it can be enabled
-without adding new packages.
-
-It writes CSV/JSON files suitable for plotting:
+Stdlib only. Writes CSV/JSON files suitable for plotting:
 - frame_timing.csv: per-processed-frame timing + instantaneous FPS
 - confidence_scores.csv: one row per accepted detection with confidence
 - zone_timeseries.csv: per-frame total + per-zone occupancy
 - track_summaries.csv: per-track lifetime stats and max trail length
-- history_dump.json: `/history`-shaped payload dumped from SharedState
+- history_dump.json: ``/api/history``-shaped payload (1 Hz buckets) from SharedState
+- run_summary.json: model, tracker, device, source, frame counts, mean processing FPS
 """
 
 from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
 
 
 def _ensure_dir(path: Path) -> None:
@@ -37,11 +35,13 @@ class TrackStats:
 
 
 class MetricsLogger:
+    """Streams per-frame rows to CSV files in ``out_dir`` while the pipeline runs."""
+
     def __init__(self, out_dir: Path, zone_names: Iterable[str]):
         self.out_dir = Path(out_dir)
         _ensure_dir(self.out_dir)
 
-        self.zone_names: List[str] = list(zone_names)
+        self.zone_names: list[str] = list(zone_names)
 
         self._frame_f = (self.out_dir / "frame_timing.csv").open("w", newline="", encoding="utf-8")
         self._conf_f = (self.out_dir / "confidence_scores.csv").open("w", newline="", encoding="utf-8")
@@ -91,7 +91,7 @@ class MetricsLogger:
         )
         self._zone_w.writeheader()
 
-        self._tracks: Dict[int, TrackStats] = {}
+        self._tracks: dict[int, TrackStats] = {}
 
     def log_frame_timing(
         self,
@@ -133,9 +133,9 @@ class MetricsLogger:
         frame_index: int,
         track_id: int,
         confidence: float,
-        zones: List[str],
-        bbox: List[int],
-        center: List[int] | tuple[int, int],
+        zones: list[str],
+        bbox: list[int],
+        center: list[int] | tuple[int, int],
     ) -> None:
         x1, y1, x2, y2 = bbox
         box_area = max(0, (x2 - x1) * (y2 - y1))
@@ -157,7 +157,9 @@ class MetricsLogger:
             }
         )
 
-    def log_zone_counts(self, *, timestamp: str, frame_index: int, total_count: int, zone_counts: Dict[str, int]) -> None:
+    def log_zone_counts(
+        self, *, timestamp: str, frame_index: int, total_count: int, zone_counts: dict[str, int]
+    ) -> None:
         row = {"timestamp": timestamp, "frame_index": frame_index, "total_count": total_count}
         for zn in self.zone_names:
             row[zn] = int(zone_counts.get(zn, 0))
@@ -225,6 +227,10 @@ class MetricsLogger:
 
     def write_history_dump(self, payload: dict) -> None:
         out_path = self.out_dir / "history_dump.json"
+        out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    def write_run_summary(self, payload: dict) -> None:
+        out_path = self.out_dir / "run_summary.json"
         out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def close(self) -> None:

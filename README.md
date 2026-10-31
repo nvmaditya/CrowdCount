@@ -14,17 +14,8 @@
   <img src="https://img.shields.io/badge/code%20style-ruff-D7FF64" alt="Ruff">
 </p>
 
-<!--
-TODO(maintainer): replace this screenshot with a hero GIF at docs/images/demo.gif.
-What to record (about 15 s, 1280 px wide, under 8 MB):
-  1. Run `crowdcount demo` and open http://localhost:8080 in dark mode.
-  2. Hold on the live view for a few seconds: boxes, track IDs, trails, zone cards updating.
-  3. Set "East plaza" to 2 in Admin > Thresholds beforehand so the red alert banner appears on camera.
-  4. Cut to Admin > Zones, draw a new zone on the frame, save, and return to the dashboard to show it counting live.
-Tools: Kap, or macOS screen recording (Shift+Cmd+5) converted with gifski.
--->
 <p align="center">
-  <img src="docs/images/hero.jpg" width="920" alt="CrowdCount dashboard: a threshold alert banner, live counts, and the annotated video with tracked people, trails and zones next to per-zone occupancy against thresholds">
+  <img src="docs/images/demo.gif" width="760" alt="Animated demo: people walking across a campus plaza, each with a tracked bounding box, ID, confidence and motion trail, while two polygon zones show live 'now' and 'total' counts">
 </p>
 
 ## Why CrowdCount
@@ -55,6 +46,11 @@ It is fully local, open source, and built to be read and extended.
   (MPS) or NVIDIA (CUDA), chosen automatically. Docker image included.
 - **Built to last.** One CLI, layered config (`crowdcount.toml`, env, flags), readable errors
   with exit codes, 175 tests, and CI on Python 3.10 to 3.14.
+
+<p align="center">
+  <img src="docs/images/hero.jpg" width="820" alt="CrowdCount dashboard: a threshold alert banner, live counts, and the annotated video next to per-zone occupancy against thresholds">
+  <br><sub>The dashboard during a zone-threshold alert.</sub>
+</p>
 
 <p align="center">
   <img src="docs/images/zone-editor.jpg" width="820" alt="Admin panel zone editor: drawing a new polygon zone on the live camera frame, with existing zones listed">

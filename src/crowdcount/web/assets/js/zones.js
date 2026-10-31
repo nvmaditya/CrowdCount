@@ -498,6 +498,10 @@
     // Every 10 s: picks up zones changed elsewhere (admins re-read the zones file).
     document.addEventListener("cc:layout", () => loadZones());
 
+    // The session expired or was revoked: the admin controls above were set up for it, so start over
+    // read-only (the zones file is admin-only; the public layout is what's left).
+    document.addEventListener("cc:session", () => location.reload());
+
     document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || event.defaultPrevented || ui.mode !== "drawing" || $("dialog[open]")) return;
         cancelFlow(true);

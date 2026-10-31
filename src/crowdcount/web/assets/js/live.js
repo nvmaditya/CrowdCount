@@ -32,7 +32,7 @@
         error: { icon: "bug", title: "The detector stopped with an error", hint: "Check the terminal running CrowdCount." },
         disconnected: { icon: "wifi-off", title: "Disconnected", hint: "Waiting for the server…" },
         offline: {
-            icon: "video-off", title: "No detector running", hint: "Start one alongside this dashboard:",
+            icon: "video-off", title: "No detector running", hint: "Start the detector with:",
             code: "crowdcount run --source <video or stream URL>",
         },
     };
@@ -60,7 +60,8 @@
         starts: [],
         chart: null,
         chartZones: [],
-        chartLimit: null,
+        chartLimit: null, // the Total occupancy limit drawn as a dashed line, or null
+        legendLimit: null, // the limit listed in the legend instead, when it is far above the counts
         heatSince: undefined,
         alertIds: null,
     };
@@ -75,6 +76,13 @@
         const st = ui.summary?.status;
         return st?.frame_width && st?.frame_height ? `${st.frame_width} / ${st.frame_height}` : "4 / 3";
     }
+
+    // Zone names are user data, so look them up as own keys only ("constructor" is a valid name).
+    const inLayout = (name) => Object.hasOwn(Shell.layout, name);
+    const zoneStats = (name) => {
+        const zones = ui.summary?.zones;
+        return zones && Object.hasOwn(zones, name) ? zones[name] : null;
+    };
 
     // ------------------------------------------------------------ header
 
@@ -297,7 +305,7 @@
             $("#zones-edit").replaceChildren(...(admin ? [el("a", { class: "card-link", href: "zones.html" }, "Edit zones")] : []));
         }
         const zones = ui.scopes.filter((x) => x.kind === "zone");
-        const visitors = (name) => ui.summary.zones?.[name]?.total_visitors;
+        const visitors = (name) => zoneStats(name)?.total_visitors;
         const model = zones.map((z) => [z.name, z.color, z.level, z.now, z.rule?.limit, z.ratio, visitors(z.name)]);
         if (!changed("zones", [model, admin])) return;
         $("#zones-note").hidden = !zones.length;
@@ -354,7 +362,8 @@
             const key = Math.floor(ms / 1000 / seconds);
             let w = windows.get(key);
             if (!w) {
-                w = { start: key * seconds * 1000, total: 0, zones: {} };
+                // No prototype: a zone named "constructor" must start from 0, not Object's constructor.
+                w = { start: key * seconds * 1000, total: 0, zones: Object.create(null) };
                 windows.set(key, w);
             }
             w.total = Math.max(w.total, row.total_count);
@@ -370,7 +379,7 @@
     }
 
     function zoneCss(name) {
-        const color = Shell.layout[name]?.color;
+        const color = inLayout(name) ? Shell.layout[name].color : null;
         return color ? CC.rgb(color) : null;
     }
 
@@ -467,12 +476,18 @@
         // Zones in drawing order (as in the zones file), then any that have since been removed.
         const seen = new Set(windows.flatMap((w) => Object.keys(w.zones)));
         const names = [...Object.keys(Shell.layout).filter((n) => seen.has(n)),
-            ...[...seen].filter((n) => !(n in Shell.layout)).sort()];
+            ...[...seen].filter((n) => !inLayout(n)).sort()];
+        // Draw the Total occupancy limit only when it is near the counts. A limit far above them (the
+        // default 50 with a handful of people) would squash every line into the bottom of the chart,
+        // so the scale follows the counts instead and the legend states the limit.
+        const peak = Math.max(1, ...windows.map((w) => Math.max(w.total, ...Object.values(w.zones))));
         const limit = globalLimit();
+        const drawLimit = limit !== null && limit <= 2 * peak;
         const muted = tone("--muted-foreground");
         if (!ui.chart) createChart();
         ui.chartZones = names;
-        ui.chartLimit = limit;
+        ui.chartLimit = drawLimit ? limit : null;
+        ui.legendLimit = drawLimit ? null : limit;
         ui.starts = windows.map((w) => w.start);
         const chart = ui.chart;
         chart.data.labels = windows.map((w) => CC.fmtClock(w.start));
@@ -487,13 +502,15 @@
                 borderColor: zoneCss(name) || muted, backgroundColor: zoneCss(name) || muted,
                 borderWidth: 1.75, fill: false, tension: 0.3, pointRadius: 0, pointHoverRadius: 3,
             })),
-            ...(limit === null ? [] : [{
+            ...(drawLimit ? [{
                 label: "Total limit", isLimit: true, data: windows.map(() => limit),
                 borderColor: tone("--destructive"), borderWidth: 1.25, borderDash: [5, 5],
                 fill: false, tension: 0, pointRadius: 0, pointHoverRadius: 0,
-            }]),
+            }] : []),
         ];
-        chart.options.scales.y.suggestedMax = Math.max(4, limit === null ? 0 : limit * 1.1);
+        chart.options.scales.y.suggestedMax = drawLimit
+            ? Math.max(4, limit * 1.1)
+            : Math.max(4, Math.ceil(peak * 1.25));
         chart.update("none");
         renderLegend();
     }
@@ -503,16 +520,18 @@
         const items = ui.chart ? [
             { name: "Total", color: "var(--foreground)", now: s?.last_update ? s.total_count : null },
             ...ui.chartZones.map((name) => ({
-                name, color: zoneCss(name) || "var(--muted-foreground)", now: s?.zones?.[name]?.current ?? null,
+                name, color: zoneCss(name) || "var(--muted-foreground)", now: zoneStats(name)?.current ?? null,
             })),
         ] : [];
-        if (!changed("legend", items)) return;
+        const limit = ui.chart ? ui.legendLimit : null;
+        if (!changed("legend", [items, limit])) return;
         const legend = $("#chart-legend");
         legend.hidden = !items.length;
         legend.replaceChildren(...items.map((item) => el("span", { class: "legend-item" },
             el("span", { class: "swatch is-line", style: { background: item.color } }),
             el("span", { class: "legend-name" }, item.name),
-            el("span", { class: "legend-value" }, item.now ?? "–"))));
+            el("span", { class: "legend-value" }, item.now ?? "–"))),
+        ...(limit === null ? [] : [el("span", { class: "legend-item legend-limit" }, `Total limit ${limit}`)]));
     }
 
     // ------------------------------------------------------------ heatmap

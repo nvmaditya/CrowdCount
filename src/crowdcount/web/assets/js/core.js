@@ -59,7 +59,10 @@ const CC = (() => {
         return `Request failed (${status})`;
     }
 
-    /** Call the JSON API. On a 401 with a session: sign out, and go to sign-in if the page requires it. */
+    /**
+     * Call the JSON API. On a 401 with a session: sign out, dispatch `cc:session` on document so the page
+     * can drop its signed-in controls, and go to sign-in if the page requires it.
+     */
     async function api(path, { method = "GET", body, raw = false } = {}) {
         const headers = {};
         const s = session();
@@ -76,7 +79,11 @@ const CC = (() => {
             throw new ApiError("Cannot reach the CrowdCount server", 0);
         }
         if (resp.status === 401 && s?.token) {
-            clearSession();
+            // Only once per lost session: a parallel request may have dropped it already.
+            if (session()?.token === s.token) {
+                clearSession();
+                document.dispatchEvent(new CustomEvent("cc:session"));
+            }
             if (document.body.dataset.requiresAuth) {
                 location.href = `login.html?next=${encodeURIComponent(location.pathname)}`;
             }
@@ -510,16 +517,18 @@ const CC = (() => {
 
     /**
      * Total occupancy and every zone with its count, rule, active alert and level, most at risk first.
-     * `layout` maps zone names to {color, enabled, points} (Shell.layout). Levels come from the server.
+     * `layout` maps zone names to {color, enabled, points} (Shell.layout). Levels come from the server,
+     * except that a zone switched off in the layout is "off" (it isn't counted, so it has no count).
      */
     function scopes(summary, layout) {
         if (!summary) return [];
-        layout = layout || {};
+        // Zone names are user data: "constructor" must not find Object.prototype.constructor.
+        const own = (obj, key) => (obj && Object.hasOwn(obj, key) ? obj[key] : null);
         const rules = summary.rules || {};
         const alerts = Object.values(summary.alerts || {});
         const zones = summary.zones || {};
-        const make = (kind, name, label, color, now, rule, alert) => {
-            const level = !rule ? "none" : !rule.enabled ? "off" : alert ? alert.level : "normal";
+        const make = (kind, name, label, color, now, rule, alert, off = false) => {
+            const level = off ? "off" : !rule ? "none" : !rule.enabled ? "off" : alert ? alert.level : "normal";
             const ratio = rule && now !== null ? now / rule.limit : null;
             return { kind, name, label, color, now, rule, alert, level, ratio };
         };
@@ -528,9 +537,12 @@ const CC = (() => {
             alerts.find((a) => a.type === "global") || null)];
         const names = new Set([...Object.keys(zones), ...Object.keys(rules.zones || {})]);
         for (const name of names) {
-            const color = layout[name]?.color ? rgb(layout[name].color) : "var(--muted-foreground)";
-            list.push(make("zone", name, name, color, zones[name]?.current ?? null, rules.zones?.[name] || null,
-                alerts.find((a) => a.type === "zone" && a.zone === name) || null));
+            const zone = own(layout, name);
+            const off = zone?.enabled === false;
+            const color = zone?.color ? rgb(zone.color) : "var(--muted-foreground)";
+            const now = off ? null : own(zones, name)?.current ?? null;
+            const alert = off ? null : alerts.find((a) => a.type === "zone" && a.zone === name) || null;
+            list.push(make("zone", name, name, color, now, own(rules.zones, name), alert, off));
         }
         return list.sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
             || (b.ratio ?? -1) - (a.ratio ?? -1)

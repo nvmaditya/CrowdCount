@@ -138,7 +138,8 @@
             }
             return;
         }
-        const cards = ui.scopes.filter((s) => s.rule?.enabled);
+        // Enabled rules on counted scopes: a zone switched off on the Zones page is "off" and has no count.
+        const cards = ui.scopes.filter((s) => s.rule?.enabled && s.level !== "off");
         const model = cards.map((s) => [s.name, s.label, s.color, s.level, s.now, s.rule.limit,
             s.rule.warn_percent, s.rule.warn_at, s.alert?.since ?? null]);
         if (!changed("risk", model)) return;

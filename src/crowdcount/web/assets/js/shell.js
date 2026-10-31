@@ -5,6 +5,7 @@
  * <header id="header">, then dispatches on document:
  *   cc:summary  detail {summary, connected}  every second (summary is the last good payload or null)
  *   cc:layout   detail {layout}              on start and every 10 s ({name: {color, enabled, points}})
+ * and re-renders the sidebar on cc:session (CC.api dropped an expired or revoked session).
  */
 "use strict";
 
@@ -167,12 +168,10 @@ const Shell = (() => {
         document.dispatchEvent(new CustomEvent("cc:layout", { detail: { layout: ui.layout } }));
     }
 
-    /** Check a stored session once; CC.api drops it on a 401, and the sidebar then shows "Sign in". */
+    /** Check a stored session once; on a 401 CC.api drops it and dispatches cc:session (see init). */
     function verifySession() {
         if (!CC.isSignedIn()) return;
-        CC.api("/auth/me").catch((e) => {
-            if (e.status === 401) renderSidebar();
-        });
+        CC.api("/auth/me").catch(() => { /* a lost session is handled by the cc:session listener */ });
     }
 
     // ------------------------------------------------------------ init
@@ -183,6 +182,8 @@ const Shell = (() => {
      */
     function init({ page, title, subtitle = null, actions = [] }) {
         ui.page = page;
+        // Any request that finds the session expired or revoked: drop Settings and show "Sign in".
+        document.addEventListener("cc:session", renderSidebar);
         renderSidebar();
         renderHeader(title, subtitle, actions);
         verifySession();

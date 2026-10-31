@@ -173,19 +173,6 @@ unless you pass `--no-realtime`. Methodology, the BoT-SORT comparison and caveat
 [docs/tracking.md](docs/tracking.md#choosing-a-model). There are no accuracy figures: the
 repository has no labelled ground truth (see the roadmap).
 
-## Research
-
-The [`paper/`](paper/) folder holds material for an academic write-up of this system:
-
-- a [code-grounded technical description](paper/PAPER_TECHNICAL_EXTRACTION.md) of the
-  architecture, detection and tracking pipeline, zone logic, heatmap and access control, with
-  pseudocode and a section-by-section outline (written against the 1.x code);
-- scripts that regenerate its figures: architecture and frame-flow diagrams, zone overlays,
-  activity and alert summaries, and UI screenshots.
-
-It is source material, not a published paper.
-<!-- TODO(maintainer): if the paper is published or on arXiv, link the PDF/DOI here. -->
-
 ## Documentation
 
 | Guide | Covers |

@@ -5,7 +5,6 @@ venv
 data
 runs
 outputs
-paper
 tests
 docs
 examples

@@ -47,7 +47,6 @@ src/crowdcount/
   web/            dashboard, sign-in and admin pages (plain JS; vendored libraries in web/vendor)
 tests/            pytest suite
 docs/             user documentation
-paper/            research write-up material and figure scripts
 ```
 
 [docs/architecture.md](docs/architecture.md) explains how a frame flows through these.

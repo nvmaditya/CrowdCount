@@ -34,6 +34,7 @@ dependencies = [
     "passlib>=1.7.4",
     "bcrypt==4.0.1",
     "reportlab>=4.0,<6",
+    "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]

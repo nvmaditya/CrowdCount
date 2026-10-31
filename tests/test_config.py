@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from crowdcount.config import ConfigError, Settings, cache_dir, load_settings
+from crowdcount.config import ConfigError, Settings, cache_dir, load_dotenv, load_settings
 
 
 def write(tmp_path, text, name="crowdcount.toml"):
@@ -103,3 +103,23 @@ def test_missing_explicit_config(tmp_path):
 def test_cache_dir(tmp_path):
     assert cache_dir({"CROWDCOUNT_CACHE_DIR": str(tmp_path)}) == tmp_path
     assert cache_dir({"XDG_CACHE_HOME": str(tmp_path)}) == tmp_path / "crowdcount"
+
+
+def test_load_dotenv(tmp_path):
+    path = tmp_path / ".env"
+    path.write_text(
+        "# comment\n"
+        "CROWDCOUNT_ADMIN_PASSWORD='s3cret value'\n"
+        "export CROWDCOUNT_LOG_LEVEL=DEBUG  # inline comment\n"
+        "CROWDCOUNT_JWT_SECRET=\n"
+        "CROWDCOUNT_DATA_DIR=/from/file\n"
+        "not a variable\n"
+    )
+    env = {"CROWDCOUNT_DATA_DIR": "/already/set"}
+    loaded = load_dotenv(path, env)
+    assert env["CROWDCOUNT_ADMIN_PASSWORD"] == "s3cret value"
+    assert env["CROWDCOUNT_LOG_LEVEL"] == "DEBUG"
+    assert env["CROWDCOUNT_DATA_DIR"] == "/already/set"  # the real environment wins
+    assert "CROWDCOUNT_JWT_SECRET" not in env  # empty values are skipped
+    assert sorted(loaded) == ["CROWDCOUNT_ADMIN_PASSWORD", "CROWDCOUNT_LOG_LEVEL"]
+    assert load_dotenv(tmp_path / "missing", env) == []

@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from crowdcount import __version__
-from crowdcount.config import ConfigError, Settings, cache_dir, load_settings
+from crowdcount.config import ConfigError, Settings, cache_dir, load_dotenv, load_settings
 from crowdcount.log import setup_logging
 from crowdcount.zones import ZoneConfigError, load_zones, zones_outside_frame
 
@@ -497,8 +497,11 @@ def _graceful_signals() -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     """Entry point for the ``crowdcount`` script. Returns the process exit code."""
     args = build_parser().parse_args(argv)
+    loaded = load_dotenv()  # before logging, so CROWDCOUNT_LOG_LEVEL in .env applies
     setup_logging(args.verbose)
     _graceful_signals()
+    if loaded:
+        logger.debug("Loaded %s from .env", ", ".join(loaded))
 
     from crowdcount.demo import DemoAssetError
     from crowdcount.detector import ModelLoadError

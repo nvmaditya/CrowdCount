@@ -189,6 +189,33 @@ def load_settings(
     return settings.validate()
 
 
+def load_dotenv(path: str | os.PathLike[str] = ".env", env: dict[str, str] | None = None) -> list[str]:
+    """Load ``KEY=VALUE`` lines from ``path`` into the environment.
+
+    Variables that are already set win, so the real environment always overrides the
+    file. Returns the names that were set. Missing files are ignored.
+    """
+    target = os.environ if env is None else env
+    path = Path(path)
+    if not path.is_file():
+        return []
+    loaded = []
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.removeprefix("export ").split("=", 1)
+        key, value = key.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        elif " #" in value:
+            value = value.split(" #", 1)[0].rstrip()
+        if key and key not in target and value:
+            target[key] = value
+            loaded.append(key)
+    return loaded
+
+
 def cache_dir(env: Mapping[str, str] | None = None) -> Path:
     """Directory for downloaded assets (demo video, model weights)."""
     env = os.environ if env is None else env

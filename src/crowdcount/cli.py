@@ -30,6 +30,7 @@ from crowdcount.zones import ZoneConfigError, load_zones, zones_outside_frame
 logger = logging.getLogger("crowdcount")
 
 EXIT_OK, EXIT_ERROR, EXIT_USAGE, EXIT_INTERRUPTED = 0, 1, 2, 130
+_terminated = False
 
 
 class PortInUseError(RuntimeError):
@@ -487,6 +488,8 @@ def _graceful_signals() -> None:
     """
 
     def _interrupt(signum: int, _frame: object) -> None:
+        global _terminated
+        _terminated = signum == signal.SIGTERM
         raise KeyboardInterrupt
 
     if threading.current_thread() is threading.main_thread():
@@ -510,6 +513,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         return int(args.func(args) or EXIT_OK)
     except KeyboardInterrupt:
+        if _terminated:  # SIGTERM is a normal shutdown request (docker stop, systemd)
+            logger.info("Stopped")
+            return EXIT_OK
         logger.info("Interrupted")
         return EXIT_INTERRUPTED
     except (ConfigError, ZoneConfigError) as exc:

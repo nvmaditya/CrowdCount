@@ -228,7 +228,8 @@ const CC = (() => {
     /**
      * A row-actions menu: a dt-row-btn trigger (ellipsis-vertical, aria-label `label`) and a popover
      * list of `items` ({label, icon, danger, disabled, onselect}). It closes on a selection, an
-     * outside click, scrolling and Escape; Escape and a selection return focus to the trigger.
+     * outside click, scrolling, Tab and Escape; Escape and a selection return focus to the trigger, and
+     * Tab moves on from it.
      */
     function menu(label, items) {
         const trigger = el("button", {
@@ -295,6 +296,11 @@ const CC = (() => {
 
         trigger.addEventListener("click", () => (list.hidden ? open() : close(false)));
         list.addEventListener("keydown", (event) => {
+            if (event.key === "Tab") {
+                // Close and let Tab move on from the trigger, as for any menu button.
+                close(true);
+                return;
+            }
             const buttons = enabled();
             const at = buttons.indexOf(document.activeElement);
             const moves = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: buttons.length - 1 };
@@ -302,9 +308,13 @@ const CC = (() => {
             event.preventDefault();
             buttons[(moves[event.key] + buttons.length) % buttons.length].focus();
         });
-        // Tabbing out of the open list closes it.
+        // Pressing an item must not move focus: Safari and Firefox on macOS don't focus buttons on
+        // mousedown, so focus would leave the list (relatedTarget null) and close it before the click.
+        list.addEventListener("mousedown", (event) => event.preventDefault());
+        // Focus moving to another element closes the list. A null relatedTarget (a press somewhere that
+        // takes no focus) is left to the outside-pointerdown handler, which ignores presses inside.
         wrap.addEventListener("focusout", (event) => {
-            if (!wrap.contains(event.relatedTarget)) close(false);
+            if (event.relatedTarget && !wrap.contains(event.relatedTarget)) close(false);
         });
         return wrap;
     }

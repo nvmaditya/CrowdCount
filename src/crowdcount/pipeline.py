@@ -117,6 +117,12 @@ class Pipeline:
         self.options = options or PipelineOptions()
         self.info = info or {}
         self.zone_tracker = ZoneTracker(load_zones(self.zones_file))
+        if not self.zone_tracker.zones:
+            logger.info(
+                "No zones in %s yet: counting the whole frame. Draw zones in the admin panel "
+                "or with `crowdcount zones edit`; they apply without a restart.",
+                self.zones_file,
+            )
         self._stop = threading.Event()
         self._paused = False
         self._trails: dict[int, deque[tuple[int, int]]] = {}

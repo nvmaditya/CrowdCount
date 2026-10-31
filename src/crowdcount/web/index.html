@@ -7,168 +7,146 @@
         <meta name="description" content="Live crowd monitoring dashboard" />
         <link rel="icon" href="favicon.svg" type="image/svg+xml" />
         <script src="assets/js/theme-init.js"></script>
-        <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css" />
-        <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css" />
-        <link rel="stylesheet" href="assets/css/theme.css" />
+        <link rel="stylesheet" href="assets/css/tokens.css" />
+        <link rel="stylesheet" href="assets/css/kit.css" />
+        <link rel="stylesheet" href="assets/css/app.css" />
     </head>
     <body>
-        <nav class="cc-navbar">
-            <div class="container-fluid cc-container d-flex align-items-center gap-3 py-2 px-3 px-lg-4">
-                <a class="cc-brand" href="./">
-                    <img src="favicon.svg" class="cc-logo" alt="" />
-                    CrowdCount
-                </a>
-                <div id="status" class="cc-status d-none d-md-inline-flex" data-state="offline">
-                    <span class="cc-dot"></span><span id="status-text">Connecting…</span>
-                </div>
-                <div class="ms-auto d-flex align-items-center gap-2">
-                    <a class="btn btn-sm btn-outline-secondary d-none d-sm-inline-flex" href="/docs" title="API reference">
-                        <i class="bi bi-braces"></i><span class="ms-1">API</span>
-                    </a>
-                    <button class="btn btn-sm btn-outline-secondary" data-cc-theme-toggle></button>
-                    <div id="auth-area"></div>
-                </div>
-            </div>
-        </nav>
+        <div class="app">
+            <aside id="sidebar" class="sidebar"></aside>
 
-        <main class="container-fluid cc-container px-3 px-lg-4 py-4">
-            <div id="banner" class="mb-3" hidden></div>
+            <main class="main">
+                <header id="header" class="page-header"></header>
 
-            <!-- KPIs -->
-            <div class="row g-3 mb-3">
-                <div class="col-6 col-xl-3">
-                    <div class="cc-card cc-kpi">
-                        <div class="cc-kpi-label"><i class="bi bi-people"></i>People now</div>
-                        <div class="cc-kpi-value" id="kpi-now">–</div>
-                        <div class="cc-kpi-meta" id="kpi-now-meta"></div>
-                    </div>
-                </div>
-                <div class="col-6 col-xl-3">
-                    <div class="cc-card cc-kpi">
-                        <div class="cc-kpi-label"><i class="bi bi-graph-up-arrow"></i>Peak this run</div>
-                        <div class="cc-kpi-value" id="kpi-peak">–</div>
-                        <div class="cc-kpi-meta" id="kpi-peak-meta"></div>
-                    </div>
-                </div>
-                <div class="col-6 col-xl-3">
-                    <div class="cc-card cc-kpi">
-                        <div class="cc-kpi-label"><i class="bi bi-bounding-box"></i>Zones occupied</div>
-                        <div class="cc-kpi-value" id="kpi-zones">–</div>
-                        <div class="cc-kpi-meta" id="kpi-zones-meta"></div>
-                    </div>
-                </div>
-                <div class="col-6 col-xl-3">
-                    <div class="cc-card cc-kpi" id="kpi-alerts-card">
-                        <div class="cc-kpi-label"><i class="bi bi-bell"></i>Active alerts</div>
-                        <div class="cc-kpi-value" id="kpi-alerts">–</div>
-                        <div class="cc-kpi-meta" id="kpi-alerts-meta"></div>
-                    </div>
-                </div>
-            </div>
+                <div class="page">
+                    <div id="banner" class="banner" role="alert" hidden></div>
 
-            <!-- Live view + zones -->
-            <div class="row g-3 mb-3">
-                <div class="col-lg-8">
-                    <section class="cc-card h-100">
-                        <div class="cc-card-header">
-                            <h2 class="cc-card-title"><i class="bi bi-camera-video"></i>Live view</h2>
-                            <span class="cc-muted cc-small" id="live-meta"></span>
-                        </div>
-                        <div class="cc-media" id="live"></div>
-                    </section>
-                </div>
-                <div class="col-lg-4">
-                    <section class="cc-card h-100 d-flex flex-column">
-                        <div class="cc-card-header">
-                            <h2 class="cc-card-title"><i class="bi bi-bounding-box-circles"></i>Zones</h2>
-                            <a href="admin.html#zones" class="cc-small" id="zones-edit" hidden>Edit zones</a>
-                        </div>
-                        <div id="zones" class="flex-grow-1"></div>
-                    </section>
-                </div>
-            </div>
-
-            <!-- Charts -->
-            <div class="row g-3 mb-3">
-                <div class="col-lg-8">
-                    <section class="cc-card">
-                        <div class="cc-card-header">
-                            <h2 class="cc-card-title"><i class="bi bi-activity"></i>People over time</h2>
-                            <span class="cc-muted cc-small">Peak per second · last 10 minutes</span>
-                        </div>
-                        <div class="cc-card-body"><div class="cc-chart" id="history-chart"></div></div>
-                    </section>
-                </div>
-                <div class="col-lg-4">
-                    <section class="cc-card">
-                        <div class="cc-card-header">
-                            <h2 class="cc-card-title"><i class="bi bi-bar-chart"></i>Occupancy by zone</h2>
-                        </div>
-                        <div class="cc-card-body"><div class="cc-chart" id="zone-chart"></div></div>
-                    </section>
-                </div>
-            </div>
-
-            <!-- Heatmap + controls -->
-            <div class="row g-3">
-                <div class="col-lg-7">
-                    <section class="cc-card">
-                        <div class="cc-card-header">
-                            <h2 class="cc-card-title"><i class="bi bi-fire"></i>Occupancy heatmap</h2>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="cc-muted cc-small" id="heatmap-since"></span>
-                                <button class="btn btn-sm btn-outline-secondary" id="heatmap-reset" hidden>
-                                    <i class="bi bi-arrow-counterclockwise"></i> Reset
-                                </button>
+                    <div class="grid-stats">
+                        <section class="stat-card" aria-label="People now">
+                            <span class="stat-desc">People now</span>
+                            <span class="stat-value" id="stat-now">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-now-main"></span>
+                                <span class="stat-foot-sub" id="stat-now-sub"></span>
                             </div>
-                        </div>
-                        <div class="cc-media" id="heatmap"></div>
-                    </section>
-                </div>
-                <div class="col-lg-5">
-                    <section class="cc-card mb-3">
-                        <div class="cc-card-header">
-                            <h2 class="cc-card-title"><i class="bi bi-bell"></i>Alert threshold</h2>
-                        </div>
-                        <div class="cc-card-body">
-                            <p class="cc-muted cc-small mb-3">
-                                An alert fires when the total number of people exceeds this value. Per-zone
-                                thresholds are set in the admin panel.
-                            </p>
-                            <form id="threshold-form" class="d-flex gap-2 align-items-center">
-                                <input type="number" min="1" class="form-control" id="threshold-input" style="max-width: 9rem" aria-label="Global threshold" />
-                                <button type="submit" class="btn btn-primary" id="threshold-save" hidden>Save</button>
-                                <span class="cc-muted cc-small" id="threshold-hint"></span>
-                            </form>
-                        </div>
-                    </section>
-                    <section class="cc-card">
-                        <div class="cc-card-header">
-                            <h2 class="cc-card-title"><i class="bi bi-download"></i>Export</h2>
-                        </div>
-                        <div class="cc-card-body">
-                            <p class="cc-muted cc-small mb-3">The last hour of per-second counts, or a one-page summary report.</p>
-                            <div class="d-flex gap-2 flex-wrap">
-                                <button class="btn btn-outline-secondary" data-export="/export/csv"><i class="bi bi-filetype-csv me-1"></i>History CSV</button>
-                                <button class="btn btn-outline-secondary" data-export="/export/pdf"><i class="bi bi-file-earmark-pdf me-1"></i>PDF report</button>
+                        </section>
+                        <section class="stat-card" aria-label="Peak this run">
+                            <span class="stat-desc">Peak this run</span>
+                            <span class="stat-value" id="stat-peak">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-peak-main"></span>
+                                <span class="stat-foot-sub" id="stat-peak-sub"></span>
                             </div>
+                        </section>
+                        <section class="stat-card" aria-label="Total occupancy">
+                            <span class="stat-desc">Total occupancy</span>
+                            <span class="stat-value" id="stat-total">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-total-main"></span>
+                                <span class="stat-foot-sub" id="stat-total-sub"></span>
+                            </div>
+                        </section>
+                        <section class="stat-card" aria-label="Active alerts">
+                            <span class="stat-desc">Active alerts</span>
+                            <span class="stat-value" id="stat-alerts">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-alerts-main"></span>
+                                <span class="stat-foot-sub" id="stat-alerts-sub"></span>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="row-2">
+                        <section class="chart-card card-flush" id="camera-card" aria-labelledby="camera-title">
+                            <div class="card-head">
+                                <h2 class="chart-title" id="camera-title">Camera</h2>
+                                <span class="card-meta mono" id="camera-size"></span>
+                                <span class="ui-badge b-outline live-badge" id="camera-live" hidden><span class="live-dot"></span>Live</span>
+                                <button type="button" class="ui-btn v-ghost s-icon s-icon-sm" id="camera-fullscreen" aria-label="Open full screen" title="Open full screen" hidden></button>
+                            </div>
+                            <div class="media dark" id="camera-media"></div>
+                        </section>
+
+                        <section class="chart-card card-flush" id="zones-card" aria-labelledby="zones-title">
+                            <div class="card-head">
+                                <h2 class="chart-title" id="zones-title">Zones</h2>
+                                <span class="card-meta">Most at risk first</span>
+                                <span class="card-head-end" id="zones-edit"></span>
+                            </div>
+                            <div id="zones-list"></div>
+                            <p class="zones-note" id="zones-note" hidden>Zones can overlap, so a person in two zones counts in both.</p>
+                        </section>
+                    </div>
+
+                    <div class="row-2">
+                        <section class="chart-card" aria-labelledby="chart-title">
+                            <div class="chart-head">
+                                <div>
+                                    <h2 class="chart-title" id="chart-title">People over time</h2>
+                                    <p class="chart-sub" id="chart-sub">Peak count per 10-second window</p>
+                                </div>
+                                <div class="chart-toggle" role="group" aria-label="Time range">
+                                    <button type="button" class="ct-btn" data-range="600">10 min</button>
+                                    <button type="button" class="ct-btn" data-range="1800">30 min</button>
+                                    <button type="button" class="ct-btn" data-range="3600">1 hour</button>
+                                </div>
+                            </div>
+                            <div class="legend" id="chart-legend"></div>
+                            <div class="chart-box" id="chart-box"></div>
+                        </section>
+
+                        <section class="chart-card heat-card" aria-labelledby="heat-title">
+                            <div class="chart-head">
+                                <div>
+                                    <h2 class="chart-title" id="heat-title">Heatmap</h2>
+                                    <p class="chart-sub" id="heat-sub">Builds up as people are detected</p>
+                                </div>
+                                <button type="button" class="ui-btn v-outline s-sm" id="heat-reset" hidden></button>
+                            </div>
+                            <div class="heat-media" id="heat-media"></div>
+                            <div class="heat-scale" id="heat-scale" hidden>
+                                <span>Less</span>
+                                <span class="heat-gradient"></span>
+                                <span>More</span>
+                            </div>
+                        </section>
+                    </div>
+
+                    <section class="chart-card card-flush" aria-labelledby="events-title">
+                        <div class="card-head">
+                            <h2 class="chart-title" id="events-title">Recent events</h2>
+                            <span class="card-head-end" id="events-all"></span>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="dt-table events-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-time">Time</th>
+                                        <th class="col-level">Level</th>
+                                        <th>Event</th>
+                                        <th class="col-scope">Scope</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="events-body"></tbody>
+                            </table>
                         </div>
                     </section>
+
+                    <footer class="page-foot">
+                        <span id="footer-version">CrowdCount · AGPL-3.0</span>
+                        <span class="page-foot-links">
+                            <a href="https://github.com/nvmaditya/CrowdCount">Source code</a>
+                            <a href="https://github.com/nvmaditya/CrowdCount/tree/main/docs">Documentation</a>
+                        </span>
+                    </footer>
                 </div>
-            </div>
+            </main>
+        </div>
 
-            <footer class="d-flex flex-wrap justify-content-between gap-2 cc-muted cc-small mt-4 pt-3 border-top">
-                <span>CrowdCount <span id="version"></span></span>
-                <span>
-                    <a href="/docs">API reference</a> ·
-                    <a href="https://github.com/nvmaditya/CrowdCount" rel="noopener">GitHub</a>
-                </span>
-            </footer>
-        </main>
-
-        <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
         <script src="vendor/chart.js/chart.umd.min.js"></script>
-        <script src="assets/js/common.js"></script>
-        <script src="assets/js/dashboard.js"></script>
+        <script src="assets/js/icons.js"></script>
+        <script src="assets/js/core.js"></script>
+        <script src="assets/js/shell.js"></script>
+        <script src="assets/js/live.js"></script>
     </body>
 </html>

@@ -1,4 +1,4 @@
-/* Shared helpers for the CrowdCount UI: session, API calls, safe DOM building, feedback, theme, formatting.
+/* Shared helpers for the CrowdCount UI: session, API calls, safe DOM building, feedback, theme, formatting, alert scopes.
  * Needs icons.js. Replaces common.js on the new pages (the two are never loaded together). */
 "use strict";
 
@@ -262,6 +262,67 @@ const CC = (() => {
     /** plural(3, "zone") -> "3 zones"; plural(1, "person", "people") -> "1 person". */
     const plural = (n, word, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 
+    let tokenCtx = null;
+
+    /**
+     * The current value of a colour token such as "--foreground" as [r, g, b, a] (a is 0–1, 1 for
+     * opaque tokens), resolved through a 1×1 canvas so Chart.js gets plain sRGB instead of oklch().
+     */
+    function tokenRgb(name) {
+        if (!tokenCtx) {
+            const canvas = el("canvas", { width: 1, height: 1 });
+            tokenCtx = canvas.getContext("2d", { willReadFrequently: true });
+        }
+        const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        tokenCtx.clearRect(0, 0, 1, 1);
+        tokenCtx.fillStyle = "#000"; // an unparseable value leaves fillStyle unchanged
+        tokenCtx.fillStyle = value || "#000";
+        tokenCtx.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = tokenCtx.getImageData(0, 0, 1, 1).data;
+        return [r, g, b, Math.round((a / 255) * 100) / 100];
+    }
+
+    // ------------------------------------------------------------ alert scopes
+
+    const TOTAL_LABEL = "Total occupancy";
+    const LEVEL_TEXT = { over: "Over limit", near: "Near limit", normal: "Normal", off: "Off", none: "No limit" };
+    const LEVEL_ORDER = ["over", "near", "normal", "off", "none"];
+
+    /** A badge for an alert level: destructive when over, amber when near, muted outline otherwise. */
+    function levelBadge(level) {
+        const cls = level === "over" ? "b-destructive" : level === "near" ? "b-warn" : "b-outline t-muted";
+        return el("span", { class: `ui-badge ${cls}` }, LEVEL_TEXT[level] || LEVEL_TEXT.none);
+    }
+
+    /**
+     * Total occupancy and every zone with its count, rule, active alert and level, most at risk first.
+     * `layout` maps zone names to {color, enabled, points} (Shell.layout). Levels come from the server.
+     */
+    function scopes(summary, layout) {
+        if (!summary) return [];
+        layout = layout || {};
+        const rules = summary.rules || {};
+        const alerts = Object.values(summary.alerts || {});
+        const zones = summary.zones || {};
+        const make = (kind, name, label, color, now, rule, alert) => {
+            const level = !rule ? "none" : !rule.enabled ? "off" : alert ? alert.level : "normal";
+            const ratio = rule && now !== null ? now / rule.limit : null;
+            return { kind, name, label, color, now, rule, alert, level, ratio };
+        };
+        const list = [make("global", null, TOTAL_LABEL, "var(--foreground)",
+            summary.last_update ? summary.total_count : null, rules.global || null,
+            alerts.find((a) => a.type === "global") || null)];
+        const names = new Set([...Object.keys(zones), ...Object.keys(rules.zones || {})]);
+        for (const name of names) {
+            const color = layout[name]?.color ? rgb(layout[name].color) : "var(--muted-foreground)";
+            list.push(make("zone", name, name, color, zones[name]?.current ?? null, rules.zones?.[name] || null,
+                alerts.find((a) => a.type === "zone" && a.zone === name) || null));
+        }
+        return list.sort((a, b) => LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level)
+            || (b.ratio ?? -1) - (a.ratio ?? -1)
+            || a.label.localeCompare(b.label));
+    }
+
     return {
         session, saveSession, clearSession, isSignedIn, isAdmin, signOut,
         api, ApiError, download,
@@ -269,6 +330,7 @@ const CC = (() => {
         toast,
         theme, setTheme,
         fmtTime, fmtClock, fmtDateTime, fmtStamp,
-        rgb, plural,
+        rgb, plural, tokenRgb,
+        TOTAL_LABEL, LEVEL_TEXT, levelBadge, scopes,
     };
 })();

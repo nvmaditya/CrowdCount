@@ -1,5 +1,7 @@
 # Dashboard and admin panel
 
+![The full dashboard during a zone-threshold alert: KPIs, live view, zones, history and zone charts, heatmap, threshold and export controls](images/dashboard.jpg)
+
 `crowdcount run` (or `demo`) serves the UI at **http://localhost:8080/**, with sign-in at
 `/login.html`, the admin panel at `/admin.html`, and interactive API docs at `/docs`.
 Old `/static/...` URLs from 1.x redirect.

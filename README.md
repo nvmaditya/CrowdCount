@@ -24,7 +24,7 @@ What to record (about 15 s, 1280 px wide, under 8 MB):
 Tools: Kap, or macOS screen recording (Shift+Cmd+5) converted with gifski.
 -->
 <p align="center">
-  <img src="docs/images/dashboard.jpg" width="920" alt="CrowdCount dashboard: live annotated video with tracked people and zones, zone occupancy against thresholds, people-over-time chart, and an occupancy heatmap">
+  <img src="docs/images/hero.jpg" width="920" alt="CrowdCount dashboard: a threshold alert banner, live counts, and the annotated video with tracked people, trails and zones next to per-zone occupancy against thresholds">
 </p>
 
 ## Why CrowdCount
@@ -77,6 +77,7 @@ Open **http://localhost:8080**. The demo runs on OpenCV's public `vtest.avi` ped
 with zones drawn for it. The terminal prints a one-time password for the `admin` account. Sign
 in to draw zones and set thresholds.
 
+> On Windows, activate with `.venv\Scripts\activate` instead of `source .venv/bin/activate`.
 > With `make` installed, `make demo` does the last three steps. On Linux without a GPU, run
 > `pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu` before
 > `pip install -e .` to skip the multi-gigabyte CUDA build of PyTorch.

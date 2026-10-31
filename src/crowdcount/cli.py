@@ -10,14 +10,11 @@ import time
 import argparse
 from pathlib import Path
 
-# Add current directory to path
-sys.path.insert(0, str(Path(__file__).parent))
-
 
 def run_api_server(host='0.0.0.0', port=8080):
     """Run the FastAPI server"""
     import uvicorn
-    from backend.api import app
+    from crowdcount.server.app import app
     
     print(f"\n{'='*50}")
     print(f"Starting API Server on http://{host}:{port}")
@@ -37,7 +34,7 @@ def run_detector(video_source, model_path, zones_file, display,
                  conf_threshold=0.5, min_box_area=1500, iou_threshold=0.5, speed=1.0,
                  dashboard_port=8080, metrics_out_dir=None, max_frames=None):
     """Run the people detector"""
-    from detector.integrated_detector import IntegratedPeopleDetector
+    from crowdcount.detector import IntegratedPeopleDetector
     
     print(f"\n{'='*50}")
     print(f"Starting People Detection")

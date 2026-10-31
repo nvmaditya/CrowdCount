@@ -30,7 +30,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Data file paths
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path.cwd() / "data"
 USERS_FILE = DATA_DIR / "users.json"
 
 # Thread lock for file operations

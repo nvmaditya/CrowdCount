@@ -18,13 +18,10 @@ from time import perf_counter
 from urllib.request import urlopen
 from urllib.error import URLError
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from shared_state import shared_state
+from crowdcount.state import shared_state
 
 try:
-    from detector.metrics_logger import MetricsLogger
+    from crowdcount.metrics import MetricsLogger
 except Exception:  # pragma: no cover
     MetricsLogger = None  # type: ignore
 

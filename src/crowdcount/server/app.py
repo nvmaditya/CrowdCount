@@ -8,9 +8,6 @@ import sys
 import os
 from pathlib import Path
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 from fastapi import FastAPI, Response, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -40,10 +37,10 @@ except ImportError:
     PANDAS_AVAILABLE = False
     print("Warning: pandas not installed. Using basic CSV export.")
 
-from shared_state import shared_state
+from crowdcount.state import shared_state
 
 # Import admin router
-from backend.admin import router as admin_router, _load_config
+from crowdcount.server.admin import router as admin_router, _load_config
 
 
 # Create FastAPI app
@@ -458,7 +455,7 @@ async def websocket_endpoint(websocket: WebSocket):
 # ==================== Static Files for Frontend ====================
 
 # Mount frontend directory
-frontend_path = Path(__file__).parent.parent / "frontend"
+frontend_path = Path(__file__).parent.parent / "web"
 if frontend_path.exists():
     app.mount("/static", StaticFiles(directory=str(frontend_path)), name="static")
 

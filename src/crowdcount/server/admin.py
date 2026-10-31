@@ -4,10 +4,7 @@ Provides administrative endpoints for user management, camera configuration,
 zone management, and activity logging.
 """
 
-import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
 import json
 import io
 import csv
@@ -23,26 +20,26 @@ from .models import (
     ActivityLog, LogCategory, LogAction,
     AlertRecord
 )
-from .middleware import require_admin, get_current_user, get_client_ip
+from .deps import require_admin, get_current_user, get_client_ip
 from .auth import (
     create_user, delete_user, get_all_users, get_user_by_id,
     LoginRequest, login, blacklist_token, decode_token
 )
-from .logging_service import (
+from .audit import (
     log_activity, get_logs, export_logs_csv, cleanup_old_logs,
     log_login_success, log_login_failed, log_logout, log_config_change,
     get_alert_history, record_alert
 )
-from shared_state import shared_state
+from crowdcount.state import shared_state
 
 
 # Create router
 router = APIRouter()
 
 # Data file paths
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path.cwd() / "data"
 CONFIG_FILE = DATA_DIR / "config.json"
-ZONES_FILE = Path(__file__).parent.parent / "zones.json"
+ZONES_FILE = Path.cwd() / "zones.json"
 
 
 def _ensure_data_dir():

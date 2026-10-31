@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from backend.api import app
-from shared_state import shared_state
+from crowdcount.server.app import app
+from crowdcount.state import shared_state
 
 
 def reset_shared_state() -> None:
@@ -29,7 +29,7 @@ class ApiSmokeTests(unittest.TestCase):
         reset_shared_state()
 
     def test_root_health_endpoint(self) -> None:
-        with patch("backend.api._load_config", return_value={"thresholds": {"global_threshold": 42, "zone_thresholds": {"A": 7}}}):
+        with patch("crowdcount.server.app._load_config", return_value={"thresholds": {"global_threshold": 42, "zone_thresholds": {"A": 7}}}):
             with TestClient(app) as client:
                 response = client.get("/")
 
@@ -50,7 +50,7 @@ class ApiSmokeTests(unittest.TestCase):
             coordinates=[(100, 200)],
         )
 
-        with patch("backend.api._load_config", return_value={}):
+        with patch("crowdcount.server.app._load_config", return_value={}):
             with TestClient(app) as client:
                 count_response = client.get("/count")
                 zones_response = client.get("/zones")
@@ -74,7 +74,7 @@ class ApiSmokeTests(unittest.TestCase):
             coordinates=[],
         )
 
-        with patch("backend.api._load_config", return_value={}), patch("backend.logging_service.record_alert") as mock_record:
+        with patch("crowdcount.server.app._load_config", return_value={}), patch("crowdcount.server.audit.record_alert") as mock_record:
             with TestClient(app) as client:
                 first = client.get("/alerts")
                 second = client.get("/alerts")
@@ -101,7 +101,7 @@ class ApiSmokeTests(unittest.TestCase):
             coordinates=[],
         )
 
-        with patch("backend.api._load_config", return_value={}):
+        with patch("crowdcount.server.app._load_config", return_value={}):
             with TestClient(app) as client:
                 response = client.get("/export/csv")
 

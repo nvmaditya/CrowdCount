@@ -18,7 +18,7 @@ from .models import (
 
 
 # Data file paths
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR = Path.cwd() / "data"
 LOGS_FILE = DATA_DIR / "activity_logs.json"
 ALERTS_FILE = DATA_DIR / "alerts_history.json"
 

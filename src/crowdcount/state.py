@@ -233,7 +233,7 @@ class SharedState:
 
         for alert_type, threshold, actual_count in to_record:
             try:
-                from backend.logging_service import record_alert
+                from crowdcount.server.audit import record_alert
                 record_alert(alert_type=alert_type, threshold=threshold, actual_count=actual_count)
             except Exception:
                 # Do not crash detection/API if persistence fails

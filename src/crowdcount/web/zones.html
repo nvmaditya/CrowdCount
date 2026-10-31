@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CrowdCount · Zones</title>
+        <meta name="description" content="Draw and manage the zones counted on the live camera frame" />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <script src="assets/js/theme-init.js"></script>
+        <link rel="stylesheet" href="assets/css/tokens.css" />
+        <link rel="stylesheet" href="assets/css/kit.css" />
+        <link rel="stylesheet" href="assets/css/app.css" />
+    </head>
+    <body>
+        <div class="app">
+            <aside id="sidebar" class="sidebar"></aside>
+
+            <main class="main">
+                <header id="header" class="page-header"></header>
+
+                <div class="page zones-page">
+                    <div class="row-2 is-top">
+                        <section class="chart-card card-flush zone-main" aria-labelledby="draw-h">
+                            <h2 class="sr-only" id="draw-h">Zone editor</h2>
+                            <div class="zone-toolbar" id="zone-toolbar" hidden>
+                                <button type="button" class="ui-btn v-secondary s-sm" id="zone-new" aria-pressed="false" disabled>New zone</button>
+                                <button type="button" class="ui-btn v-ghost s-sm" id="zone-undo" disabled>Undo corner</button>
+                                <button type="button" class="ui-btn v-ghost s-sm" id="zone-cancel" hidden>Cancel</button>
+                                <span class="zone-hint" id="zone-hint" aria-live="polite"></span>
+                                <button type="button" class="ui-btn v-outline s-icon s-icon-sm" id="zone-grab" aria-label="Grab a fresh frame" title="Grab a fresh frame"></button>
+                            </div>
+                            <div id="zone-stage"></div>
+                            <form class="zone-form" id="zone-form" aria-label="Zone details" hidden>
+                                <div class="login-field zone-name-field">
+                                    <label for="zone-name">Name</label>
+                                    <input id="zone-name" class="login-input" type="text" maxlength="50" required autocomplete="off" />
+                                </div>
+                                <fieldset class="zone-colors">
+                                    <legend>Colour</legend>
+                                    <div class="zone-swatches" id="zone-swatches"></div>
+                                </fieldset>
+                                <div class="login-field zone-limit-field">
+                                    <label for="zone-limit">Alert above</label>
+                                    <input id="zone-limit" class="login-input mono" type="number" min="1" max="100000" step="1" inputmode="numeric" placeholder="No limit" />
+                                </div>
+                                <button type="submit" class="ui-btn v-default s-default" id="zone-save">Save zone</button>
+                            </form>
+                            <div class="zone-locked" id="zone-locked" hidden>
+                                <p>Sign in as an admin to draw or change zones.</p>
+                            </div>
+                        </section>
+
+                        <div class="zone-side">
+                            <section class="chart-card card-flush" aria-labelledby="list-h">
+                                <div class="card-head zone-list-head">
+                                    <h2 class="chart-title" id="list-h">Zones</h2>
+                                    <span class="ui-badge b-secondary" id="zone-count">0</span>
+                                </div>
+                                <div class="zone-list" id="zone-list"></div>
+                                <div class="zone-notes">
+                                    <span id="zone-file" hidden>Saved to <span class="code" id="zone-file-path"></span></span>
+                                    <span>Turning a zone off keeps its shape but stops counting it.</span>
+                                </div>
+                            </section>
+
+                            <section class="chart-card zone-info" aria-labelledby="info-h">
+                                <span class="zone-info-icon" id="zone-info-icon"></span>
+                                <div class="zone-info-text">
+                                    <h2 class="zone-info-title" id="info-h">How people are counted</h2>
+                                    <p class="zone-info-body">A person is in a zone when the centre of their box is inside it, edges included. On steep camera angles, draw zones a little larger than the floor area you mean. Overlapping zones count the same person in each.</p>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+
+                    <footer class="page-foot">
+                        <span id="footer-version">CrowdCount · AGPL-3.0</span>
+                        <span class="page-foot-links">
+                            <a href="https://github.com/nvmaditya/CrowdCount">Source code</a>
+                            <a href="https://github.com/nvmaditya/CrowdCount/tree/main/docs">Documentation</a>
+                        </span>
+                    </footer>
+                </div>
+            </main>
+        </div>
+
+        <script src="assets/js/icons.js"></script>
+        <script src="assets/js/core.js"></script>
+        <script src="assets/js/shell.js"></script>
+        <script src="assets/js/zone-editor.js"></script>
+        <script src="assets/js/zones.js"></script>
+    </body>
+</html>

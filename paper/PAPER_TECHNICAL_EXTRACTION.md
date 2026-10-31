@@ -116,7 +116,7 @@ Key Classes:
     - Notable: uses `tracker="botsort.yaml"` as well.
 
 - `ZoneManager` (typical implementation: `<repo_root>/zone_manager.py`)
-    - Purpose: interactive polygon-zone editor for [zones.json](zones.json#L1-L30).
+    - Purpose: interactive polygon-zone editor for [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30).
 
 Data Flow:
 
@@ -126,25 +126,25 @@ Data Flow:
     - Node C → Node D: Ultralytics YOLO `model.track(...)`
     - Node C → Node E: filtering + center-point computation + zone membership
     - Node E → Node F: per-frame zone counts + visitor sets (`update_zone_statistics`)
-    - Node F → Node G: `shared_state.update_counts(...)` ([detector/integrated_detector.py](detector/integrated_detector.py#L186-L205))
-    - Node G → Node H: FastAPI endpoints return JSON/PNG derived from shared_state ([backend/api.py](backend/api.py#L91-L201))
-    - Node H → Node I: Dashboard polling (`fetchCount`, `fetchZones`, `fetchAlerts`, `fetchHistory`, `updateHeatmap`) ([frontend/index.html](frontend/index.html#L493-L881))
+    - Node F → Node G: `shared_state.update_counts(...)` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L186-L205))
+    - Node G → Node H: FastAPI endpoints return JSON/PNG derived from shared_state ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L91-L201))
+    - Node H → Node I: Dashboard polling (`fetchCount`, `fetchZones`, `fetchAlerts`, `fetchHistory`, `updateHeatmap`) ([frontend/index.html](https://github.com/nvmaditya/CrowdCount/blob/9371787/frontend/index.html#L493-L881))
 
 Threading / async:
 
-- The server is started in a background thread: `server_thread = threading.Thread(..., daemon=True)` ([run_app.py](run_app.py#L145-L152)).
-- The detector loop runs in the main thread (OpenCV UI) ([run_app.py](run_app.py#L154-L163)).
-- FastAPI endpoints are `async def` and the WebSocket endpoint runs an infinite async loop with `await asyncio.sleep(1)` ([backend/api.py](backend/api.py#L436-L455)).
-- `SharedState` protects concurrent reads/writes using an `RLock` (`self._state_lock`) ([shared_state.py](shared_state.py#L34-L38)).
+- The server is started in a background thread: `server_thread = threading.Thread(..., daemon=True)` ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L145-L152)).
+- The detector loop runs in the main thread (OpenCV UI) ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L154-L163)).
+- FastAPI endpoints are `async def` and the WebSocket endpoint runs an infinite async loop with `await asyncio.sleep(1)` ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L436-L455)).
+- `SharedState` protects concurrent reads/writes using an `RLock` (`self._state_lock`) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L34-L38)).
 
 YOLOv8 Integration:
 
-- Model instantiation: `self.model = YOLO(model_path)` ([detector/integrated_detector.py](detector/integrated_detector.py#L59-L61)).
-- Core call: `self.model.track(frame, persist=True, classes=[0], conf=..., iou=..., tracker="botsort.yaml", verbose=False)` ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
+- Model instantiation: `self.model = YOLO(model_path)` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L59-L61)).
+- Core call: `self.model.track(frame, persist=True, classes=[0], conf=..., iou=..., tracker="botsort.yaml", verbose=False)` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
 - Results parsing:
     - `boxes = results[0].boxes.xyxy.cpu().numpy()`
     - `track_ids = results[0].boxes.id.cpu().numpy().astype(int)`
-    - `confidences = results[0].boxes.conf.cpu().numpy()` ([detector/integrated_detector.py](detector/integrated_detector.py#L316-L324)).
+    - `confidences = results[0].boxes.conf.cpu().numpy()` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L316-L324)).
 
 ---
 
@@ -152,29 +152,29 @@ YOLOv8 Integration:
 
 Detection:
 
-- Class filtering: only person class is processed via `classes=[0]` in `model.track(...)` ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
+- Class filtering: only person class is processed via `classes=[0]` in `model.track(...)` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
 - Thresholds (defaults in integrated detector):
-    - `DEFAULT_CONFIDENCE_THRESHOLD = 0.5` ([detector/integrated_detector.py](detector/integrated_detector.py#L39-L41))
-    - `DEFAULT_MIN_BOX_AREA = 1500` ([detector/integrated_detector.py](detector/integrated_detector.py#L39-L41))
-    - `DEFAULT_IOU_THRESHOLD = 0.5` ([detector/integrated_detector.py](detector/integrated_detector.py#L39-L41))
+    - `DEFAULT_CONFIDENCE_THRESHOLD = 0.5` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L39-L41))
+    - `DEFAULT_MIN_BOX_AREA = 1500` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L39-L41))
+    - `DEFAULT_IOU_THRESHOLD = 0.5` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L39-L41))
 - Post-tracking filters (executed per candidate detection):
-    - Confidence check: `if conf < self.conf_threshold: continue` ([detector/integrated_detector.py](detector/integrated_detector.py#L326-L329)).
-    - Min area: `if box_area < self.min_box_area: continue` ([detector/integrated_detector.py](detector/integrated_detector.py#L331-L336)).
-    - Aspect ratio bounds: reject if `aspect_ratio > 2.0 or aspect_ratio < 0.15` ([detector/integrated_detector.py](detector/integrated_detector.py#L338-L340)).
+    - Confidence check: `if conf < self.conf_threshold: continue` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L326-L329)).
+    - Min area: `if box_area < self.min_box_area: continue` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L331-L336)).
+    - Aspect ratio bounds: reject if `aspect_ratio > 2.0 or aspect_ratio < 0.15` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L338-L340)).
 
 Tracking:
 
-- Tracking is delegated to Ultralytics via `model.track(...)` with `persist=True` and tracker config name `"botsort.yaml"` ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
+- Tracking is delegated to Ultralytics via `model.track(...)` with `persist=True` and tracker config name `"botsort.yaml"` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
 - Tracker parameters: `tracker="botsort.yaml"` resolves to Ultralytics BoT-SORT defaults (not stored in this repo). Observed defaults in the current environment (`ultralytics==8.3.241`) include:
     - `tracker_type: botsort`
     - `track_high_thresh: 0.25`, `track_low_thresh: 0.10`, `new_track_thresh: 0.25`
     - `track_buffer: 30`, `match_thresh: 0.80`, `fuse_score: True`
     - `gmc_method: sparseOptFlow`
     - `with_reid: False`, `proximity_thresh: 0.50`, `appearance_thresh: 0.80`
-    - Reproducibility note: [requirements.txt](requirements.txt#L1-L24) specifies `ultralytics>=8.0.0` (not pinned), so exact tracker defaults may differ across environments.
+    - Reproducibility note: [requirements.txt](https://github.com/nvmaditya/CrowdCount/blob/9371787/requirements.txt#L1-L24) specifies `ultralytics>=8.0.0` (not pinned), so exact tracker defaults may differ across environments.
 
-- Unique ID assignment is not implemented manually; IDs are read from `results[0].boxes.id` and cast to int ([detector/integrated_detector.py](detector/integrated_detector.py#L316-L324)).
-- The standalone detector also uses BoT-SORT config name `"botsort.yaml"` ([people_detector_bytetrack.py](people_detector_bytetrack.py#L239-L246)).
+- Unique ID assignment is not implemented manually; IDs are read from `results[0].boxes.id` and cast to int ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L316-L324)).
+- The standalone detector also uses BoT-SORT config name `"botsort.yaml"` ([people_detector_bytetrack.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/people_detector_bytetrack.py#L239-L246)).
 
 Zone Containment:
 
@@ -188,23 +188,23 @@ def point_in_zone(self, point, zone_points):
     return cv2.pointPolygonTest(np.array(zone_points, dtype=np.int32), point, False) >= 0
 ```
 
-Source: [detector/integrated_detector.py](detector/integrated_detector.py#L155-L158)
+Source: [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L155-L158)
 
 Trail Management:
 
-- Data structure: `self.track_history = defaultdict(lambda: [])` keyed by `track_id` ([detector/integrated_detector.py](detector/integrated_detector.py#L67-L69)).
-- Eviction policy: append per frame; if length exceeds 30, drop oldest point (`pop(0)`) ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L402)).
+- Data structure: `self.track_history = defaultdict(lambda: [])` keyed by `track_id` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L67-L69)).
+- Eviction policy: append per frame; if length exceeds 30, drop oldest point (`pop(0)`) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L402)).
 
 Zone Stats:
 
-- Current occupancy: `zone_current_count` is cleared each update and recomputed from `detections` ([detector/integrated_detector.py](detector/integrated_detector.py#L171-L184)).
-- Unique visitors: `zone_visitors[zone_name].add(track_id)` adds any ID present in that zone in the current frame; there is **no explicit "enter" event** (e.g., edge-trigger on zone boundary crossing) ([detector/integrated_detector.py](detector/integrated_detector.py#L179-L184)).
+- Current occupancy: `zone_current_count` is cleared each update and recomputed from `detections` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L171-L184)).
+- Unique visitors: `zone_visitors[zone_name].add(track_id)` adds any ID present in that zone in the current frame; there is **no explicit "enter" event** (e.g., edge-trigger on zone boundary crossing) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L179-L184)).
 
 Optimizations:
 
-- Frame skipping for speed: integer `frame_skip` derived from `speed`, skipping frames via modulo test ([detector/integrated_detector.py](detector/integrated_detector.py#L437-L494)).
-- End-of-video looping (integrated pipeline): when `cap.read()` fails, reset position to frame 0 and continue ([detector/integrated_detector.py](detector/integrated_detector.py#L479-L486)).
-- Standalone detector does **not** loop; it breaks on `ret == False` ([people_detector_bytetrack.py](people_detector_bytetrack.py#L397-L401)).
+- Frame skipping for speed: integer `frame_skip` derived from `speed`, skipping frames via modulo test ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L437-L494)).
+- End-of-video looping (integrated pipeline): when `cap.read()` fails, reset position to frame 0 and continue ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L479-L486)).
+- Standalone detector does **not** loop; it breaks on `ret == False` ([people_detector_bytetrack.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/people_detector_bytetrack.py#L397-L401)).
 
 ---
 
@@ -266,58 +266,58 @@ Zone_2,True,4,797078.00
 
 Zone State (disk vs memory):
 
-- On disk: persistent zone definitions are stored in [zones.json](zones.json#L1-L30).
-- In memory (detector): loaded at startup into `self.zones` via `load_zones()`; used for containment checks and drawing; changes to [zones.json](zones.json#L1-L30) are not reloaded unless the detector is restarted ([detector/integrated_detector.py](detector/integrated_detector.py#L106-L113)).
-- In memory (admin): admin endpoints read/write the same [zones.json](zones.json#L1-L30) file via `ZONES_FILE` and `_load_zones()`/`_save_zones()` ([backend/admin.py](backend/admin.py#L45-L104), [backend/admin.py](backend/admin.py#L425-L536)).
-- Interactive editing: `ZoneManager` provides a separate UI tool that reads/writes [zones.json](zones.json#L1-L30) ([zone_manager.py](zone_manager.py#L11-L260)).
+- On disk: persistent zone definitions are stored in [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30).
+- In memory (detector): loaded at startup into `self.zones` via `load_zones()`; used for containment checks and drawing; changes to [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30) are not reloaded unless the detector is restarted ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L106-L113)).
+- In memory (admin): admin endpoints read/write the same [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30) file via `ZONES_FILE` and `_load_zones()`/`_save_zones()` ([backend/admin.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/admin.py#L45-L104), [backend/admin.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/admin.py#L425-L536)).
+- Interactive editing: `ZoneManager` provides a separate UI tool that reads/writes [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30) ([zone_manager.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/zone_manager.py#L11-L260)).
 
 Other persisted configuration/data (JSON files):
 
-- [data/config.json](data/config.json): system config including camera list, thresholds, and log retention; loaded/saved by `_load_config()`/`_save_config()` ([backend/admin.py](backend/admin.py#L44-L86)).
-- [data/users.json](data/users.json): user accounts/roles; loaded/saved by `load_users()`/`save_users()` ([backend/auth.py](backend/auth.py#L34-L145)).
-- [data/activity_logs.json](data/activity_logs.json): activity log store; written/read by logging service ([backend/logging_service.py](backend/logging_service.py#L22-L140)).
-- [data/alerts_history.json](data/alerts_history.json): alert-history store; written/read by logging service ([backend/logging_service.py](backend/logging_service.py#L22-L355)).
+- `data/config.json`: system config including camera list, thresholds, and log retention; loaded/saved by `_load_config()`/`_save_config()` ([backend/admin.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/admin.py#L44-L86)).
+- `data/users.json`: user accounts/roles; loaded/saved by `load_users()`/`save_users()` ([backend/auth.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/auth.py#L34-L145)).
+- `data/activity_logs.json`: activity log store; written/read by logging service ([backend/logging_service.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/logging_service.py#L22-L140)).
+- `data/alerts_history.json`: alert-history store; written/read by logging service ([backend/logging_service.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/logging_service.py#L22-L355)).
 
 In-memory State:
 
-- `shared_state` is a global singleton instance of `SharedState` ([shared_state.py](shared_state.py#L239-L246)).
+- `shared_state` is a global singleton instance of `SharedState` ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L239-L246)).
 - Core state fields (private → type → meaning):
-    - `_total_count: int` → total detections in latest frame ([shared_state.py](shared_state.py#L40-L44))
-    - `_zone_counts: Dict[str, int]` → current counts per zone name (latest frame) ([shared_state.py](shared_state.py#L40-L44))
-    - `_zone_visitors: Dict[str, set]` → unique visitor IDs per zone (cumulative) ([shared_state.py](shared_state.py#L40-L44))
-    - `_person_coordinates: List[Tuple[int,int]]` → current centers (for heatmap) ([shared_state.py](shared_state.py#L45-L49))
-    - `_heatmap_accumulator: Optional[np.ndarray]` → float32 accumulator image ([shared_state.py](shared_state.py#L45-L51))
-    - `_frame_dimensions: Tuple[int,int]` → (height,width) used for heatmap ([shared_state.py](shared_state.py#L45-L51))
-    - `_history: deque` (maxlen=3600) → time series of `{timestamp, total_count, zone_counts}` ([shared_state.py](shared_state.py#L49-L83))
-    - `_global_threshold: int` and `_zone_thresholds: Dict[str,int]` → alert thresholds ([shared_state.py](shared_state.py#L55-L58))
-    - `_detection_running: bool` → detector liveness flag ([shared_state.py](shared_state.py#L63-L64), [shared_state.py](shared_state.py#L220-L235))
+    - `_total_count: int` → total detections in latest frame ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L40-L44))
+    - `_zone_counts: Dict[str, int]` → current counts per zone name (latest frame) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L40-L44))
+    - `_zone_visitors: Dict[str, set]` → unique visitor IDs per zone (cumulative) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L40-L44))
+    - `_person_coordinates: List[Tuple[int,int]]` → current centers (for heatmap) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L45-L49))
+    - `_heatmap_accumulator: Optional[np.ndarray]` → float32 accumulator image ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L45-L51))
+    - `_frame_dimensions: Tuple[int,int]` → (height,width) used for heatmap ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L45-L51))
+    - `_history: deque` (maxlen=3600) → time series of `{timestamp, total_count, zone_counts}` ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L49-L83))
+    - `_global_threshold: int` and `_zone_thresholds: Dict[str,int]` → alert thresholds ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L55-L58))
+    - `_detection_running: bool` → detector liveness flag ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L63-L64), [shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L220-L235))
 
 Per-frame detection record (local, not persisted):
 
-- Produced by `IntegratedPeopleDetector.detect_people(...)` as a list `detections: List[dict]` ([detector/integrated_detector.py](detector/integrated_detector.py#L268-L370)).
-- Schema: `{id:int, bbox:[x1,y1,x2,y2], center:(cx:int,cy:int), confidence:float, zones:List[str]}` ([detector/integrated_detector.py](detector/integrated_detector.py#L356-L370)).
-- Lifecycle: created per processed frame, consumed by `update_zone_statistics(...)` and `update_shared_state(...)`, then discarded (no on-disk persistence) ([detector/integrated_detector.py](detector/integrated_detector.py#L171-L205)).
+- Produced by `IntegratedPeopleDetector.detect_people(...)` as a list `detections: List[dict]` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L268-L370)).
+- Schema: `{id:int, bbox:[x1,y1,x2,y2], center:(cx:int,cy:int), confidence:float, zones:List[str]}` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L356-L370)).
+- Lifecycle: created per processed frame, consumed by `update_zone_statistics(...)` and `update_shared_state(...)`, then discarded (no on-disk persistence) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L171-L205)).
 
 Track History:
 
-- Integrated detector: `track_history: defaultdict(list)` storing up to 30 `(x,y)` center tuples per `track_id` ([detector/integrated_detector.py](detector/integrated_detector.py#L67-L69), [detector/integrated_detector.py](detector/integrated_detector.py#L396-L402)).
-- Standalone detector: identical structure and eviction (`>30 → pop(0)`) ([people_detector_bytetrack.py](people_detector_bytetrack.py#L47-L49), [people_detector_bytetrack.py](people_detector_bytetrack.py#L324-L326)).
+- Integrated detector: `track_history: defaultdict(list)` storing up to 30 `(x,y)` center tuples per `track_id` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L67-L69), [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L402)).
+- Standalone detector: identical structure and eviction (`>30 → pop(0)`) ([people_detector_bytetrack.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/people_detector_bytetrack.py#L47-L49), [people_detector_bytetrack.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/people_detector_bytetrack.py#L324-L326)).
 
 Constants/Hyperparameters:
 
 - Detector defaults:
-    - `conf_threshold = 0.5` (reject low-confidence tracks), `min_box_area = 1500` (reject small boxes), `iou_threshold = 0.5` (IoU parameter passed into the YOLO tracking call) ([detector/integrated_detector.py](detector/integrated_detector.py#L39-L41)).
-    - Aspect ratio bounds: `[0.15, 2.0]` (reject extreme shapes unlikely to be people) ([detector/integrated_detector.py](detector/integrated_detector.py#L338-L340)).
-    - Trail max length: 30 points (caps stored/drawn trajectory history per ID) ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L402)).
-    - ID memory frames: 30 (declared as an occlusion/ID-memory knob; currently only `recent_track_ids` last-seen frames are stored) ([detector/integrated_detector.py](detector/integrated_detector.py#L74-L77)).
+    - `conf_threshold = 0.5` (reject low-confidence tracks), `min_box_area = 1500` (reject small boxes), `iou_threshold = 0.5` (IoU parameter passed into the YOLO tracking call) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L39-L41)).
+    - Aspect ratio bounds: `[0.15, 2.0]` (reject extreme shapes unlikely to be people) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L338-L340)).
+    - Trail max length: 30 points (caps stored/drawn trajectory history per ID) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L402)).
+    - ID memory frames: 30 (declared as an occlusion/ID-memory knob; currently only `recent_track_ids` last-seen frames are stored) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L74-L77)).
 - Shared state:
-    - History maxlen: 3600 entries (bounds history memory; intended “last hour” at ~1 sample/sec) ([shared_state.py](shared_state.py#L49-L53)).
-    - Heatmap circle radius: 30 px (spreads each center point’s contribution in the accumulator) ([shared_state.py](shared_state.py#L95-L97)).
-    - Heatmap blur kernel: (51,51) (smooths accumulator before colormapping) ([shared_state.py](shared_state.py#L141-L142)).
-    - Colormap: JET (visual mapping from intensity to RGB) ([shared_state.py](shared_state.py#L144-L145)).
-    - Default global threshold: 50 (alert threshold for total people count) ([shared_state.py](shared_state.py#L55-L58)).
+    - History maxlen: 3600 entries (bounds history memory; intended “last hour” at ~1 sample/sec) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L49-L53)).
+    - Heatmap circle radius: 30 px (spreads each center point’s contribution in the accumulator) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L95-L97)).
+    - Heatmap blur kernel: (51,51) (smooths accumulator before colormapping) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L141-L142)).
+    - Colormap: JET (visual mapping from intensity to RGB) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L144-L145)).
+    - Default global threshold: 50 (alert threshold for total people count) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L55-L58)).
 - Frontend polling:
-    - `UPDATE_INTERVAL = 1000 ms`, `HEATMAP_INTERVAL = 5000 ms`, `MAX_HISTORY_POINTS = 60` (dashboard polling/plot window) ([frontend/index.html](frontend/index.html#L464-L466)).
+    - `UPDATE_INTERVAL = 1000 ms`, `HEATMAP_INTERVAL = 5000 ms`, `MAX_HISTORY_POINTS = 60` (dashboard polling/plot window) ([frontend/index.html](https://github.com/nvmaditya/CrowdCount/blob/9371787/frontend/index.html#L464-L466)).
 
 ---
 
@@ -325,25 +325,25 @@ Constants/Hyperparameters:
 
 Time Complexity:
 
-- YOLOv8 detection+tracking: dominant per-frame cost; treated as model-dependent (not expressible purely as Big-O in repo code) ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
-- Post-filters + center computation: `O(N)` per processed frame, for `N` candidate tracks ([detector/integrated_detector.py](detector/integrated_detector.py#L326-L353)).
-- Zone containment: `O(N · Z · P)` where `Z` is number of enabled zones and `P` is vertices per polygon; implemented via `pointPolygonTest` for each zone ([detector/integrated_detector.py](detector/integrated_detector.py#L159-L176)).
-- Trail maintenance: `O(N)` appends + `O(1)` eviction (but `pop(0)` is `O(L)` on Python lists; with `L=30` it is bounded) ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L402)).
-- Heatmap update: `O(N · r^2)` per frame (draw filled circle radius `r=30`) ([shared_state.py](shared_state.py#L85-L97)).
-- Heatmap generation per request: `O(H·W)` normalization + blur + colormap + PNG encoding (H,W = frame dimensions) ([shared_state.py](shared_state.py#L130-L162)).
+- YOLOv8 detection+tracking: dominant per-frame cost; treated as model-dependent (not expressible purely as Big-O in repo code) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
+- Post-filters + center computation: `O(N)` per processed frame, for `N` candidate tracks ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L326-L353)).
+- Zone containment: `O(N · Z · P)` where `Z` is number of enabled zones and `P` is vertices per polygon; implemented via `pointPolygonTest` for each zone ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L159-L176)).
+- Trail maintenance: `O(N)` appends + `O(1)` eviction (but `pop(0)` is `O(L)` on Python lists; with `L=30` it is bounded) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L402)).
+- Heatmap update: `O(N · r^2)` per frame (draw filled circle radius `r=30`) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L85-L97)).
+- Heatmap generation per request: `O(H·W)` normalization + blur + colormap + PNG encoding (H,W = frame dimensions) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L130-L162)).
 
 Space Complexity:
 
-- Heatmap accumulator: `O(H·W)` float32 array (4 bytes each), allocated when first updated ([shared_state.py](shared_state.py#L85-L91)).
-- History: bounded by `maxlen=3600`, each entry stores `zone_counts` dict sized `O(Z)` ([shared_state.py](shared_state.py#L49-L83)).
-- Trail history: `O(N·L)` with `L ≤ 30` points per ID ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L402)).
-- Unique visitors: `O(U)` where `U` is cumulative number of unique track IDs stored in per-zone sets (can grow unbounded until restart) ([detector/integrated_detector.py](detector/integrated_detector.py#L70-L73)).
+- Heatmap accumulator: `O(H·W)` float32 array (4 bytes each), allocated when first updated ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L85-L91)).
+- History: bounded by `maxlen=3600`, each entry stores `zone_counts` dict sized `O(Z)` ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L49-L83)).
+- Trail history: `O(N·L)` with `L ≤ 30` points per ID ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L402)).
+- Unique visitors: `O(U)` where `U` is cumulative number of unique track IDs stored in per-zone sets (can grow unbounded until restart) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L70-L73)).
 
 Bottlenecks (ranked, based on code paths):
 
-1. YOLOv8 `model.track(...)` inference + tracker update ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
-2. Heatmap retrieval (`GaussianBlur` + colormap + PNG encoding) every 5s in the dashboard by default ([shared_state.py](shared_state.py#L130-L162), [frontend/index.html](frontend/index.html#L465-L874)).
-3. Per-frame copying of visitor sets in `SharedState.update_counts(...)` (`{k: v.copy() ...}`) as unique IDs grow ([shared_state.py](shared_state.py#L64-L76)).
+1. YOLOv8 `model.track(...)` inference + tracker update ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
+2. Heatmap retrieval (`GaussianBlur` + colormap + PNG encoding) every 5s in the dashboard by default ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L130-L162), [frontend/index.html](https://github.com/nvmaditya/CrowdCount/blob/9371787/frontend/index.html#L465-L874)).
+3. Per-frame copying of visitor sets in `SharedState.update_counts(...)` (`{k: v.copy() ...}`) as unique IDs grow ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L64-L76)).
 
 Memory Estimate:
 
@@ -443,7 +443,7 @@ Data Source: `paper/data/<run>/zone_timeseries.csv` (plot-ready) and `paper/data
 Sample Data or Formula:
 
 - Each history entry has:
-    - `timestamp`, `total_count`, `zone_counts` ([shared_state.py](shared_state.py#L81-L86))
+    - `timestamp`, `total_count`, `zone_counts` ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L81-L86))
 - Note: history is appended every detector update (per processed frame), not strictly 1 Hz.
   Paper Caption: "Per-zone occupancy time series derived from per-frame zone membership assignment."
 
@@ -454,8 +454,8 @@ Y-axis: Cumulative unique visitors (IDs)
 Data Source: `SharedState._zone_visitors` and detector `zone_visitors`
 Sample Data or Formula:
 
-- Current API exposes only the _current snapshot_ total visitors per zone via `get_zone_counts()` (computed as `len(_zone_visitors[zone])`) ([shared_state.py](shared_state.py#L112-L122), [backend/api.py](backend/api.py#L115-L126)).
-- **Not persisted over time** in `_history` (history stores only `zone_counts`) ([shared_state.py](shared_state.py#L49-L86)).
+- Current API exposes only the _current snapshot_ total visitors per zone via `get_zone_counts()` (computed as `len(_zone_visitors[zone])`) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L112-L122), [backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L115-L126)).
+- **Not persisted over time** in `_history` (history stores only `zone_counts`) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L49-L86)).
   Paper Caption: "Cumulative unique visitors per zone; requires external logging or code instrumentation to persist per-timestep totals."
 
 [GRAPH: Trail length distribution]
@@ -465,7 +465,7 @@ Y-axis: Count of active track IDs
 Data Source: `paper/data/<run>/track_summaries.csv` (`max_trail_len`)
 Sample Data or Formula:
 
-- Trails are bounded at 30 points and exist only in-memory during execution ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L402)).
+- Trails are bounded at 30 points and exist only in-memory during execution ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L402)).
 - Persisted per track as `max_trail_len` in `track_summaries.csv`.
   Paper Caption: "Distribution of per-ID trajectory history lengths (bounded by a 30-frame cap)."
 
@@ -476,7 +476,7 @@ Y-axis: Count of track IDs
 Data Source: `paper/data/<run>/track_summaries.csv` (`duration_frames`, `frames_seen`, `first_timestamp`, `last_timestamp`)
 Sample Data or Formula:
 
-- Integrated detector maintains `recent_track_ids = {track_id: last_seen_frame}` for runtime bookkeeping ([detector/integrated_detector.py](detector/integrated_detector.py#L74-L77), [detector/integrated_detector.py](detector/integrated_detector.py#L348-L349)).
+- Integrated detector maintains `recent_track_ids = {track_id: last_seen_frame}` for runtime bookkeeping ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L74-L77), [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L348-L349)).
 - Persisted per track in `track_summaries.csv`.
   Paper Caption: "Track ID lifetime distribution under BoT-SORT tracking; first/last seen are logged per track during evaluation runs."
 
@@ -487,7 +487,7 @@ Y-axis: FPS (frames/sec) or latency (ms)
 Data Source: `paper/data/<run>/frame_timing.csv` (`infer_ms`, `post_ms`, `frame_ms`, `fps_inst`)
 Sample Data or Formula:
 
-- Code reads source FPS from OpenCV capture: `fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30` ([detector/integrated_detector.py](detector/integrated_detector.py#L433-L436)).
+- Code reads source FPS from OpenCV capture: `fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L433-L436)).
 - Measured FPS/latency is persisted per processed frame in `frame_timing.csv`.
   Paper Caption: "Measured throughput of the detection pipeline (per-frame latency and instantaneous FPS) logged during evaluation runs."
 
@@ -495,13 +495,13 @@ Sample Data or Formula:
 Type: Bar chart
 X-axis: Zone name
 Y-axis: Area (pixel²)
-Data Source: Polygon vertices in [zones.json](zones.json#L1-L30)
+Data Source: Polygon vertices in [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30)
 Sample Data or Formula:
 
 - Shoelace formula:
     - `A = 0.5 * abs(sum(x_i*y_{i+1} - x_{i+1}*y_i))`
-    - Implemented in `_polygon_area_px2(...)` ([paper/generate_figures.py](paper/generate_figures.py#L61-L77)).
-- Verified values (from [paper/data/zone_areas.csv](paper/data/zone_areas.csv#L1-L3), generated by [paper/generate_figures.py](paper/generate_figures.py#L349-L415)):
+    - Implemented in `_polygon_area_px2(...)` ([paper/generate_figures.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/paper/generate_figures.py#L61-L77)).
+- Verified values (from `paper/data/zone_areas.csv`, generated by [paper/generate_figures.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/paper/generate_figures.py#L349-L415)):
     - Zone_1: 822238.0 px²
     - Zone_2: 797078.0 px²
 - Reproduction command:
@@ -518,9 +518,9 @@ Paper Caption: "Configured zone polygon areas (in pixel²) computed directly fro
 
 Dependencies:
 
-- Python: 3.8+ (stated requirement) ([README.md](README.md#L282)).
+- Python: 3.8+ (stated requirement) ([README.md](https://github.com/nvmaditya/CrowdCount/blob/9371787/README.md#L282)).
 
-- From [requirements.txt](requirements.txt#L1-L24) (dependency specs as written; most are minimum versions (`>=`), only `bcrypt` is pinned):
+- From [requirements.txt](https://github.com/nvmaditya/CrowdCount/blob/9371787/requirements.txt#L1-L24) (dependency specs as written; most are minimum versions (`>=`), only `bcrypt` is pinned):
     - `ultralytics>=8.0.0`
     - `opencv-python>=4.8.0`
     - `numpy>=1.24.0`
@@ -551,12 +551,12 @@ Dependencies:
 
 Default Model:
 
-- Integrated detector default model path: `'yolov8m.pt'` ([detector/integrated_detector.py](detector/integrated_detector.py#L43-L60)).
-- Orchestrator default CLI model: `--model yolov8m.pt` ([run_app.py](run_app.py#L105-L110)).
-- Standalone detector default model: `--model yolov8m.pt` ([people_detector_bytetrack.py](people_detector_bytetrack.py#L474-L481)).
+- Integrated detector default model path: `'yolov8m.pt'` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L43-L60)).
+- Orchestrator default CLI model: `--model yolov8m.pt` ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L105-L110)).
+- Standalone detector default model: `--model yolov8m.pt` ([people_detector_bytetrack.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/people_detector_bytetrack.py#L474-L481)).
 
-- Parameter count: not specified in repo; input size: not configured in this code path (no explicit `imgsz`/resize passed into `model.track`), so Ultralytics defaults apply ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
-- Default selection rationale (as described in CLI help): use `yolov8m.pt` or larger "for accuracy" ([run_app.py](run_app.py#L90)).
+- Parameter count: not specified in repo; input size: not configured in this code path (no explicit `imgsz`/resize passed into `model.track`), so Ultralytics defaults apply ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
+- Default selection rationale (as described in CLI help): use `yolov8m.pt` or larger "for accuracy" ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L90)).
 
 Hardware:
 
@@ -565,25 +565,25 @@ Hardware:
 
 Edge Cases:
 
-- Input formats: `--source` accepts a webcam index (string converted to int) or a non-numeric string treated as a video path/URL ([run_app.py](run_app.py#L87-L125)).
+- Input formats: `--source` accepts a webcam index (string converted to int) or a non-numeric string treated as a video path/URL ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L87-L125)).
 - Output formats:
-    - OpenCV annotated window (can be disabled via `--no-display`) ([run_app.py](run_app.py#L87-L143)).
-    - REST JSON: `/count`, `/zones`, `/history`, `/alerts` ([backend/api.py](backend/api.py#L102-L181)).
-    - REST image: `/heatmap` returns `image/png` ([backend/api.py](backend/api.py#L145-L164)).
-    - Exports: `/export/csv` (CSV) and `/export/pdf` (PDF; disabled if reportlab missing) ([backend/api.py](backend/api.py#L237-L380)).
+    - OpenCV annotated window (can be disabled via `--no-display`) ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L87-L143)).
+    - REST JSON: `/count`, `/zones`, `/history`, `/alerts` ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L102-L181)).
+    - REST image: `/heatmap` returns `image/png` ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L145-L164)).
+    - Exports: `/export/csv` (CSV) and `/export/pdf` (PDF; disabled if reportlab missing) ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L237-L380)).
 - Latency instrumentation: supported when running with `--metrics-out`; per-frame timing is logged to `paper/data/<run>/frame_timing.csv` (includes `infer_ms`, `post_ms`, `frame_ms`, `fps_inst`).
 
-- Empty detections: `results[0].boxes` or `results[0].boxes.id` may be `None`, producing an empty `detections` list; the shared state will then publish zero counts ([detector/integrated_detector.py](detector/integrated_detector.py#L314-L365), [detector/integrated_detector.py](detector/integrated_detector.py#L406-L409)).
+- Empty detections: `results[0].boxes` or `results[0].boxes.id` may be `None`, producing an empty `detections` list; the shared state will then publish zero counts ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L314-L365), [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L406-L409)).
 - End of file video:
-    - Integrated pipeline loops when display is enabled (continuous demo) but breaks and exits cleanly at EOF in headless mode (`--no-display`) ([detector/integrated_detector.py](detector/integrated_detector.py#L482-L489)).
-    - Standalone detector breaks and exits ([people_detector_bytetrack.py](people_detector_bytetrack.py#L397-L401)).
-- Zone boundary: containment uses `>= 0` so boundaries are included ([detector/integrated_detector.py](detector/integrated_detector.py#L155-L158)).
-- Detector liveness flag: set `True` on start and reset `False` in `finally` even on errors/quit ([detector/integrated_detector.py](detector/integrated_detector.py#L440-L447), [detector/integrated_detector.py](detector/integrated_detector.py#L544-L548)).
-- Heatmap availability: `/heatmap` returns 404 JSON if accumulator not initialized ([backend/api.py](backend/api.py#L145-L164)).
+    - Integrated pipeline loops when display is enabled (continuous demo) but breaks and exits cleanly at EOF in headless mode (`--no-display`) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L482-L489)).
+    - Standalone detector breaks and exits ([people_detector_bytetrack.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/people_detector_bytetrack.py#L397-L401)).
+- Zone boundary: containment uses `>= 0` so boundaries are included ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L155-L158)).
+- Detector liveness flag: set `True` on start and reset `False` in `finally` even on errors/quit ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L440-L447), [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L544-L548)).
+- Heatmap availability: `/heatmap` returns 404 JSON if accumulator not initialized ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L145-L164)).
 - Dashboard URL advertisement:
-    - `DASHBOARD_URL` env var is set by orchestrator ([run_app.py](run_app.py#L51-L53)).
-    - Integrated detector checks reachability and prints availability ([detector/integrated_detector.py](detector/integrated_detector.py#L89-L104), [detector/integrated_detector.py](detector/integrated_detector.py#L464-L472)).
-    - Visual overlay is hard-coded to port 8000 (doc/code mismatch) ([detector/integrated_detector.py](detector/integrated_detector.py#L505-L507)).
+    - `DASHBOARD_URL` env var is set by orchestrator ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L51-L53)).
+    - Integrated detector checks reachability and prints availability ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L89-L104), [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L464-L472)).
+    - Visual overlay is hard-coded to port 8000 (doc/code mismatch) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L505-L507)).
 
 ---
 
@@ -591,22 +591,22 @@ Edge Cases:
 
 Hard Limits:
 
-- People-only detection: `classes=[0]` hard-codes person class ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
-- Trail cap: 30 points per ID ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L402)).
-- History cap: `deque(maxlen=3600)` ([shared_state.py](shared_state.py#L49-L53)).
-- Heatmap kernel/radius are hard-coded: circle radius 30 and blur (51,51) ([shared_state.py](shared_state.py#L98-L98), [shared_state.py](shared_state.py#L144-L144)).
-- Speed control is integer-quantized (`int(speed)`), losing fractional speed precision ([detector/integrated_detector.py](detector/integrated_detector.py#L437-L438)).
+- People-only detection: `classes=[0]` hard-codes person class ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
+- Trail cap: 30 points per ID ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L402)).
+- History cap: `deque(maxlen=3600)` ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L49-L53)).
+- Heatmap kernel/radius are hard-coded: circle radius 30 and blur (51,51) ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L98-L98), [shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L144-L144)).
+- Speed control is integer-quantized (`int(speed)`), losing fractional speed precision ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L437-L438)).
 
 Scalability:
 
-- Visitor sets (`zone_visitors`) can grow unbounded; `SharedState.update_counts` deep-copies sets every update, increasing per-frame overhead as unique IDs grow ([shared_state.py](shared_state.py#L64-L76)).
-- Heatmap retrieval scales with frame size; Gaussian blur on full-frame arrays is potentially expensive when requested repeatedly ([shared_state.py](shared_state.py#L130-L162)).
-- Dashboard polling default loads `/count`, `/zones`, `/alerts` every 1s plus `/history` and `/heatmap` every 5s ([frontend/index.html](frontend/index.html#L463-L881)).
+- Visitor sets (`zone_visitors`) can grow unbounded; `SharedState.update_counts` deep-copies sets every update, increasing per-frame overhead as unique IDs grow ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L64-L76)).
+- Heatmap retrieval scales with frame size; Gaussian blur on full-frame arrays is potentially expensive when requested repeatedly ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L130-L162)).
+- Dashboard polling default loads `/count`, `/zones`, `/alerts` every 1s plus `/history` and `/heatmap` every 5s ([frontend/index.html](https://github.com/nvmaditya/CrowdCount/blob/9371787/frontend/index.html#L463-L881)).
 
 Assumptions:
 
 - Zone membership uses only bbox center point; partially overlapping bboxes may be misclassified.
-- Aspect ratio filter assumes typical upright human silhouettes (rejects extreme ratios) ([detector/integrated_detector.py](detector/integrated_detector.py#L338-L340)).
+- Aspect ratio filter assumes typical upright human silhouettes (rejects extreme ratios) ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L338-L340)).
 - No camera calibration; all geometric values are in pixel space.
 
 Re-ID Handling:
@@ -618,17 +618,17 @@ Suggested Improvements:
 
 - (Implemented) Persist per-frame confidence scores and per-ID lifecycle to support required paper graphs (confidence distribution, ID lifetimes, trail length distribution) via `paper/data/<run>/confidence_scores.csv` and `paper/data/<run>/track_summaries.csv`.
 - (Implemented) Add per-frame timing instrumentation (e.g., `time.perf_counter()`) to measure FPS/latency for performance evaluation via `paper/data/<run>/frame_timing.csv`.
-- Alert persistence is implemented via `/alerts` calling `SharedState.check_alerts_and_record()`, which edge-records newly-triggered breaches to [data/alerts_history.json](data/alerts_history.json) through `record_alert(...)` ([backend/api.py](backend/api.py#L166-L181), [shared_state.py](shared_state.py#L216-L249), [backend/logging_service.py](backend/logging_service.py#L236-L279)).
+- Alert persistence is implemented via `/alerts` calling `SharedState.check_alerts_and_record()`, which edge-records newly-triggered breaches to `data/alerts_history.json` through `record_alert(...)` ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L166-L181), [shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L216-L249), [backend/logging_service.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/logging_service.py#L236-L279)).
     - Future work: persist alerts from within the detector loop (not only via dashboard polling) and add “resolved” events when thresholds return to normal.
-- Threshold startup load is implemented: FastAPI startup hook `_startup_load_thresholds()` loads persisted thresholds from [data/config.json](data/config.json#L1-L9) into shared_state ([backend/api.py](backend/api.py#L60-L88), [backend/admin.py](backend/admin.py#L44-L86)).
+- Threshold startup load is implemented: FastAPI startup hook `_startup_load_thresholds()` loads persisted thresholds from `data/config.json` into shared_state ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L60-L88), [backend/admin.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/admin.py#L44-L86)).
     - Future work: also load thresholds when running detector-only mode without the API process.
-- Fix documentation/code mismatches: docs mention port 8000 and “BYTETrack” while code uses 8080 defaults and config name `botsort.yaml` (see [README_DASHBOARD.md](README_DASHBOARD.md#L54-L63) vs [run_app.py](run_app.py#L21-L41); [README_BYTETRACK.md](README_BYTETRACK.md#L1-L9) vs [detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)).
+- Fix documentation/code mismatches: docs mention port 8000 and “BYTETrack” while code uses 8080 defaults and config name `botsort.yaml` (see [README_DASHBOARD.md](https://github.com/nvmaditya/CrowdCount/blob/9371787/README_DASHBOARD.md#L54-L63) vs [run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L21-L41); [README_BYTETRACK.md](https://github.com/nvmaditya/CrowdCount/blob/9371787/README_BYTETRACK.md#L1-L9) vs [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)).
 
 ---
 
 [FIGURE: System architecture block diagram]
 How to generate: Embedded directly as Mermaid markdown below (AI-readable + renderable in Markdown viewers with Mermaid support).
-Diagram content anchors: Drawn from the directed data flow defined in [ARCHITECTURE] (detector → shared_state → API → dashboard). Anchor with: [run_app.py](run_app.py#L145-L163), [detector/integrated_detector.py](detector/integrated_detector.py#L410-L558), [backend/api.py](backend/api.py#L91-L201), [frontend/index.html](frontend/index.html#L463-L881).
+Diagram content anchors: Drawn from the directed data flow defined in [ARCHITECTURE] (detector → shared_state → API → dashboard). Anchor with: [run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L145-L163), [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L410-L558), [backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L91-L201), [frontend/index.html](https://github.com/nvmaditya/CrowdCount/blob/9371787/frontend/index.html#L463-L881).
 What to show: Blocks for VideoCapture, Detector, SharedState, FastAPI, Dashboard/Admin; arrows for data paths.
 Paper placement: System Architecture section.
 
@@ -646,7 +646,7 @@ flowchart LR
 
 [FIGURE: Frame processing flowchart]
 How to generate: Embedded directly as Mermaid markdown below (AI-readable + renderable in Markdown viewers with Mermaid support).
-Diagram content anchors: integrated detector loop and state publication: [detector/integrated_detector.py](detector/integrated_detector.py#L420-L548), [detector/integrated_detector.py](detector/integrated_detector.py#L293-L409), [shared_state.py](shared_state.py#L64-L100).
+Diagram content anchors: integrated detector loop and state publication: [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L420-L548), [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L409), [shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L64-L100).
 What to show: The per-frame loop: read frame → frame skip → `model.track` → parse boxes/IDs/conf → filtering → center point → point-in-polygon zone membership → update zone stats → `shared_state.update_counts` → optional render.
 Paper placement: Methodology / Pipeline.
 
@@ -669,9 +669,9 @@ flowchart TD
 [FIGURE: Zone polygon visualization]
 How to generate:
 
-- Reproducible export: `python paper/generate_figures.py` writes `paper/figures/zones_overlay.png` (and `paper/data/zone_areas.csv`) from [zones.json](zones.json#L1-L30) ([paper/generate_figures.py](paper/generate_figures.py#L61-L198), [paper/README.md](paper/README.md#L1-L18)).
+- Reproducible export: `python paper/generate_figures.py` writes `paper/figures/zones_overlay.png` (and `paper/data/zone_areas.csv`) from [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30) ([paper/generate_figures.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/paper/generate_figures.py#L61-L198), [paper/README.md](https://github.com/nvmaditya/CrowdCount/blob/9371787/paper/README.md#L1-L18)).
 - Alternative (interactive): run the detector and screenshot a frame with zone overlays:
-    - `python run_app.py --detector-only` ([run_app.py](run_app.py#L125-L143)).
+    - `python run_app.py --detector-only` ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L125-L143)).
       What to show: The translucent filled polygons and borders (zones), plus zone labels.
       Paper placement: Methodology / Zone Management.
 
@@ -683,14 +683,14 @@ Suggested content: a video frame with translucent polygon fills + borders, zone 
 
 [FIGURE: Tracking trail example]
 How to generate: Run detector, wait for at least ~30 frames of movement, screenshot the OpenCV window where trails are rendered.
-What to show: One or more IDs with polylines drawn from `track_history` ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L404)).
+What to show: One or more IDs with polylines drawn from `track_history` ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L404)).
 Paper placement: Methodology / Tracking.
 
 [FIGURE: Zone statistics dashboard mockup]
 How to generate:
 
-- Start server: `python run_app.py --server-only --port 8080` (default port is 8080) ([run_app.py](run_app.py#L21-L41), [run_app.py](run_app.py#L117-L133)).
-- Open: `http://localhost:8080/static/index.html` (static mount) ([backend/api.py](backend/api.py#L458-L463)).
+- Start server: `python run_app.py --server-only --port 8080` (default port is 8080) ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L21-L41), [run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L117-L133)).
+- Open: `http://localhost:8080/static/index.html` (static mount) ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L458-L463)).
 - Reproducible screenshots (paper-ready PNGs):
     - Install dependency: `pip install playwright`
     - Start server (or leave it running): `python run_app.py --server-only --port 8080`
@@ -787,24 +787,24 @@ This system implements real-time people detection, tracking, and polygonal zone 
 
 2. Key contributions (3–5)
 
-- Integrated YOLOv8 tracking with polygonal zone membership using `cv2.pointPolygonTest` and per-zone visitor accounting ([detector/integrated_detector.py](detector/integrated_detector.py#L155-L205)).
-- Thread-safe shared-state layer enabling real-time REST dashboard telemetry without an external database ([shared_state.py](shared_state.py#L15-L149), [backend/api.py](backend/api.py#L91-L201)).
-- Heatmap visualization built from accumulated person center coordinates with smoothing and colormapping ([shared_state.py](shared_state.py#L88-L162)).
-- Admin subsystem providing JWT authentication, RBAC-protected endpoints, JSON persistence, and audit logging ([backend/auth.py](backend/auth.py#L20-L312), [backend/middleware.py](backend/middleware.py#L58-L113), [backend/admin.py](backend/admin.py#L106-L447)).
+- Integrated YOLOv8 tracking with polygonal zone membership using `cv2.pointPolygonTest` and per-zone visitor accounting ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L155-L205)).
+- Thread-safe shared-state layer enabling real-time REST dashboard telemetry without an external database ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L15-L149), [backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L91-L201)).
+- Heatmap visualization built from accumulated person center coordinates with smoothing and colormapping ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L88-L162)).
+- Admin subsystem providing JWT authentication, RBAC-protected endpoints, JSON persistence, and audit logging ([backend/auth.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/auth.py#L20-L312), [backend/middleware.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/middleware.py#L58-L113), [backend/admin.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/admin.py#L106-L447)).
 
 3. Table: Feature → Implementation Method → Reference
 
 | Feature                   | Implementation Method                                        | Reference                                                                                            |
 | ------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Person detection          | Ultralytics YOLOv8 `YOLO(...).track(...)` with `classes=[0]` | [detector/integrated_detector.py](detector/integrated_detector.py#L293-L308)                         |
-| Multi-object tracking IDs | Tracker-provided IDs read from `results[0].boxes.id`         | [detector/integrated_detector.py](detector/integrated_detector.py#L316-L324)                         |
-| Zone containment          | OpenCV `cv2.pointPolygonTest(... ) >= 0` on center point     | [detector/integrated_detector.py](detector/integrated_detector.py#L155-L176)                         |
-| Zone occupancy stats      | Per-frame recompute of `zone_current_count`                  | [detector/integrated_detector.py](detector/integrated_detector.py#L171-L184)                         |
-| Unique visitors           | `zone_visitors[zone].add(track_id)` set accumulation         | [detector/integrated_detector.py](detector/integrated_detector.py#L179-L184)                         |
-| Heatmap                   | Float32 accumulator + blur + JET colormap + PNG encoding     | [shared_state.py](shared_state.py#L88-L162)                                                          |
-| REST API                  | FastAPI endpoints reading shared_state                       | [backend/api.py](backend/api.py#L91-L389)                                                            |
-| Dashboard charts          | Chart.js + polling intervals                                 | [frontend/index.html](frontend/index.html#L463-L881)                                                 |
-| JWT RBAC                  | HS256 JWT + `require_admin` dependency                       | [backend/auth.py](backend/auth.py#L25-L113), [backend/middleware.py](backend/middleware.py#L95-L113) |
+| Person detection          | Ultralytics YOLOv8 `YOLO(...).track(...)` with `classes=[0]` | [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L308)                         |
+| Multi-object tracking IDs | Tracker-provided IDs read from `results[0].boxes.id`         | [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L316-L324)                         |
+| Zone containment          | OpenCV `cv2.pointPolygonTest(... ) >= 0` on center point     | [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L155-L176)                         |
+| Zone occupancy stats      | Per-frame recompute of `zone_current_count`                  | [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L171-L184)                         |
+| Unique visitors           | `zone_visitors[zone].add(track_id)` set accumulation         | [detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L179-L184)                         |
+| Heatmap                   | Float32 accumulator + blur + JET colormap + PNG encoding     | [shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L88-L162)                                                          |
+| REST API                  | FastAPI endpoints reading shared_state                       | [backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L91-L389)                                                            |
+| Dashboard charts          | Chart.js + polling intervals                                 | [frontend/index.html](https://github.com/nvmaditya/CrowdCount/blob/9371787/frontend/index.html#L463-L881)                                                 |
+| JWT RBAC                  | HS256 JWT + `require_admin` dependency                       | [backend/auth.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/auth.py#L25-L113), [backend/middleware.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/middleware.py#L95-L113) |
 
 4. Pseudocode for main detection + zone checking loop
 
@@ -829,8 +829,8 @@ Pseudocode (integrated pipeline):
 
 5. Paper sections mapping (code → section content)
 
-- System Architecture: orchestration + threads ([run_app.py](run_app.py#L145-L163)), integrated detector loop ([detector/integrated_detector.py](detector/integrated_detector.py#L410-L558)), shared state ([shared_state.py](shared_state.py#L15-L149)), API ([backend/api.py](backend/api.py#L91-L201)), dashboard polling ([frontend/index.html](frontend/index.html#L463-L881)).
-- Methodology (Detection/Tracking/Zones): YOLO track call + filters ([detector/integrated_detector.py](detector/integrated_detector.py#L293-L342)), polygon test ([detector/integrated_detector.py](detector/integrated_detector.py#L155-L176)), trails ([detector/integrated_detector.py](detector/integrated_detector.py#L396-L404)).
-- Implementation: dependency list ([requirements.txt](requirements.txt#L1-L24)), endpoint contracts ([backend/api.py](backend/api.py#L91-L389)), heatmap algorithm ([shared_state.py](shared_state.py#L88-L162)), admin/auth ([backend/auth.py](backend/auth.py#L20-L312), [backend/admin.py](backend/admin.py#L106-L447)).
-- Results/Figures: exported time series via `/history` ([backend/api.py](backend/api.py#L128-L143)), zone areas from [zones.json](zones.json#L1-L30) (or [paper/data/zone_areas.csv](paper/data/zone_areas.csv#L1-L3)), heatmap PNG via `/heatmap` ([backend/api.py](backend/api.py#L145-L164)).
-- Limitations/Future Work: non-persisted metrics and missing evaluation harness; alert persistence currently depends on polling `/alerts` (edge-triggered history write on newly-active breaches) ([backend/api.py](backend/api.py#L166-L181), [shared_state.py](shared_state.py#L216-L249)).
+- System Architecture: orchestration + threads ([run_app.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/run_app.py#L145-L163)), integrated detector loop ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L410-L558)), shared state ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L15-L149)), API ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L91-L201)), dashboard polling ([frontend/index.html](https://github.com/nvmaditya/CrowdCount/blob/9371787/frontend/index.html#L463-L881)).
+- Methodology (Detection/Tracking/Zones): YOLO track call + filters ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L293-L342)), polygon test ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L155-L176)), trails ([detector/integrated_detector.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/detector/integrated_detector.py#L396-L404)).
+- Implementation: dependency list ([requirements.txt](https://github.com/nvmaditya/CrowdCount/blob/9371787/requirements.txt#L1-L24)), endpoint contracts ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L91-L389)), heatmap algorithm ([shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L88-L162)), admin/auth ([backend/auth.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/auth.py#L20-L312), [backend/admin.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/admin.py#L106-L447)).
+- Results/Figures: exported time series via `/history` ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L128-L143)), zone areas from [zones.json](https://github.com/nvmaditya/CrowdCount/blob/9371787/zones.json#L1-L30) (or `paper/data/zone_areas.csv`), heatmap PNG via `/heatmap` ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L145-L164)).
+- Limitations/Future Work: non-persisted metrics and missing evaluation harness; alert persistence currently depends on polling `/alerts` (edge-triggered history write on newly-active breaches) ([backend/api.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/backend/api.py#L166-L181), [shared_state.py](https://github.com/nvmaditya/CrowdCount/blob/9371787/shared_state.py#L216-L249)).

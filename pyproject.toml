@@ -30,9 +30,8 @@ dependencies = [
     "uvicorn>=0.29",
     "websockets>=12",
     "pydantic>=2.6,<3",
-    "python-jose[cryptography]>=3.3",
-    "passlib>=1.7.4",
-    "bcrypt==4.0.1",
+    "PyJWT>=2.8,<3",
+    "bcrypt>=4.1,<6",
     "reportlab>=4.0,<6",
     "tomli>=2.0; python_version < '3.11'",
 ]
@@ -60,6 +59,10 @@ packages = ["src/crowdcount"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+filterwarnings = [
+    "error::DeprecationWarning:crowdcount",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 
 [tool.ruff]
 line-length = 110

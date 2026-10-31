@@ -1,25 +1,36 @@
-"""
-Pydantic Models for Admin Panel
-Defines data models for users, authentication, configuration, and logging.
-"""
+"""Request/response schemas for the HTTP API (Pydantic v2)."""
 
-from pydantic import BaseModel, Field, validator
-from typing import Optional, List, Dict, Any
+from __future__ import annotations
+
+import uuid
 from datetime import datetime
 from enum import Enum
-import uuid
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from crowdcount.zones import Zone, ZoneConfigError
 
 
-# ==================== Enums ====================
+def utcnow() -> datetime:
+    """Current time as a timezone-aware local datetime."""
+    return datetime.now().astimezone()
+
+
+def as_aware(value: datetime) -> datetime:
+    """Treat naive datetimes (old records, browser date inputs) as local time."""
+    return value.astimezone() if value.tzinfo is None else value
+
+
+# ------------------------------------------------------------------ enums
+
 
 class UserRole(str, Enum):
-    """User role enumeration"""
     ADMIN = "admin"
     USER = "user"
 
 
 class LogCategory(str, Enum):
-    """Activity log category enumeration"""
     AUTH = "AUTH"
     CONFIG = "CONFIG"
     ALERT = "ALERT"
@@ -27,13 +38,10 @@ class LogCategory(str, Enum):
 
 
 class LogAction(str, Enum):
-    """Specific log actions"""
-    # Auth actions
     LOGIN_SUCCESS = "LOGIN_SUCCESS"
     LOGIN_FAILED = "LOGIN_FAILED"
     LOGOUT = "LOGOUT"
-    
-    # Config actions
+    PASSWORD_CHANGED = "PASSWORD_CHANGED"
     CAMERA_ADDED = "CAMERA_ADDED"
     CAMERA_UPDATED = "CAMERA_UPDATED"
     CAMERA_DELETED = "CAMERA_DELETED"
@@ -41,65 +49,67 @@ class LogAction(str, Enum):
     ZONE_UPDATED = "ZONE_UPDATED"
     ZONE_DELETED = "ZONE_DELETED"
     THRESHOLD_UPDATED = "THRESHOLD_UPDATED"
+    RETENTION_UPDATED = "RETENTION_UPDATED"
     USER_CREATED = "USER_CREATED"
     USER_DELETED = "USER_DELETED"
-    
-    # Alert actions
     THRESHOLD_EXCEEDED = "THRESHOLD_EXCEEDED"
-    
-    # System actions
+    ALERT_ACKNOWLEDGED = "ALERT_ACKNOWLEDGED"
+    HEATMAP_RESET = "HEATMAP_RESET"
+    LOGS_CLEANED = "LOGS_CLEANED"
     DETECTOR_STARTED = "DETECTOR_STARTED"
     DETECTOR_STOPPED = "DETECTOR_STOPPED"
     SYSTEM_ERROR = "SYSTEM_ERROR"
 
 
-# ==================== User Models ====================
+# ------------------------------------------------------------------ users & auth
 
-class UserBase(BaseModel):
-    """Base user model"""
-    username: str = Field(..., min_length=3, max_length=50)
+MAX_PASSWORD_BYTES = 72  # bcrypt only looks at the first 72 bytes
+
+
+def _check_password(value: str) -> str:
+    if len(value.encode("utf-8")) > MAX_PASSWORD_BYTES:
+        raise ValueError(f"password must be at most {MAX_PASSWORD_BYTES} bytes")
+    return value
+
+
+class UserInDB(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    username: str
+    password_hash: str
+    role: UserRole = UserRole.USER
+    created_at: datetime = Field(default_factory=utcnow)
+    last_login: datetime | None = None
+
+
+class UserCreate(BaseModel):
+    username: str = Field(min_length=3, max_length=50, pattern=r"^[A-Za-z0-9_.@-]+$")
+    password: str = Field(min_length=8)
     role: UserRole = UserRole.USER
 
-
-class UserCreate(UserBase):
-    """Model for creating a new user"""
-    password: str = Field(..., min_length=6, max_length=100)
-
-
-class UserUpdate(BaseModel):
-    """Model for updating user"""
-    username: Optional[str] = Field(None, min_length=3, max_length=50)
-    password: Optional[str] = Field(None, min_length=6, max_length=100)
-    role: Optional[UserRole] = None
-
-
-class UserInDB(UserBase):
-    """User model as stored in database/JSON"""
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    password_hash: str
-    created_at: datetime = Field(default_factory=datetime.now)
-    last_login: Optional[datetime] = None
+    _pw = field_validator("password")(_check_password)
 
 
 class UserResponse(BaseModel):
-    """User model for API responses (no password)"""
     id: str
     username: str
     role: UserRole
     created_at: datetime
-    last_login: Optional[datetime] = None
+    last_login: datetime | None = None
 
-
-# ==================== Authentication Models ====================
 
 class LoginRequest(BaseModel):
-    """Login request model"""
-    username: str
-    password: str
+    username: str = Field(max_length=50)
+    password: str = Field(max_length=200)
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
+
+    _pw = field_validator("new_password")(_check_password)
 
 
 class TokenResponse(BaseModel):
-    """JWT token response"""
     access_token: str
     token_type: str = "bearer"
     expires_in: int
@@ -107,141 +117,119 @@ class TokenResponse(BaseModel):
 
 
 class TokenData(BaseModel):
-    """Data extracted from JWT token"""
     user_id: str
     username: str
     role: UserRole
     exp: datetime
+    jti: str
 
 
-# ==================== Camera Models ====================
+# ------------------------------------------------------------------ cameras
 
-class CameraBase(BaseModel):
-    """Base camera configuration model"""
-    name: str = Field(..., min_length=1, max_length=100)
-    source_url: str = Field(..., description="Camera source (file path, RTSP URL, or device ID)")
+
+class CameraCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    source_url: str = Field(
+        min_length=1, max_length=500, description="Camera index, file path, or stream URL"
+    )
     enabled: bool = True
-
-
-class CameraCreate(CameraBase):
-    """Model for creating a new camera"""
-    pass
 
 
 class CameraUpdate(BaseModel):
-    """Model for updating camera"""
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
-    source_url: Optional[str] = None
-    enabled: Optional[bool] = None
+    name: str | None = Field(None, min_length=1, max_length=100)
+    source_url: str | None = Field(None, min_length=1, max_length=500)
+    enabled: bool | None = None
 
 
-class Camera(CameraBase):
-    """Camera model with ID"""
+class Camera(CameraCreate):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: datetime = Field(default_factory=datetime.now)
+    created_at: datetime = Field(default_factory=utcnow)
 
 
-# ==================== Zone Models ====================
+# ------------------------------------------------------------------ zones
 
-class ZoneBase(BaseModel):
-    """Base zone model"""
-    name: str = Field(..., min_length=1, max_length=50)
-    points: List[List[int]] = Field(..., description="List of [x, y] polygon points")
-    color: List[int] = Field(default=[0, 255, 0], description="RGB color for zone")
+
+class ZoneIn(BaseModel):
+    """A zone as sent by the admin panel. Validated with the same rules as zones.json."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=50)
+    points: list[list[float]] = Field(min_length=3, max_length=200)
+    color: list[int] | None = None
     enabled: bool = True
-    threshold: Optional[int] = Field(None, ge=1, description="Zone-specific threshold")
 
+    @model_validator(mode="after")
+    def _validate_geometry(self) -> ZoneIn:
+        try:
+            self.to_zone()
+        except ZoneConfigError as exc:
+            raise ValueError(str(exc)) from exc
+        return self
 
-class ZoneCreate(ZoneBase):
-    """Model for creating a new zone"""
-    pass
+    def to_zone(self, index: int = 0) -> Zone:
+        data: dict[str, Any] = self.model_dump(exclude_none=True)
+        return Zone.from_dict(data, index=index)
 
 
 class ZoneUpdate(BaseModel):
-    """Model for updating zone"""
-    name: Optional[str] = Field(None, min_length=1, max_length=50)
-    points: Optional[List[List[int]]] = None
-    color: Optional[List[int]] = None
-    enabled: Optional[bool] = None
-    threshold: Optional[int] = Field(None, ge=1)
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(None, min_length=1, max_length=50)
+    points: list[list[float]] | None = Field(None, min_length=3, max_length=200)
+    color: list[int] | None = None
+    enabled: bool | None = None
 
 
-class Zone(ZoneBase):
-    """Zone model (compatible with zones.json)"""
-    pass
-
-
-# ==================== Threshold Models ====================
-
-class ThresholdConfig(BaseModel):
-    """Threshold configuration model"""
-    global_threshold: int = Field(default=50, ge=1, description="Global alert threshold")
-    zone_thresholds: Dict[str, int] = Field(default_factory=dict, description="Per-zone thresholds")
+# ------------------------------------------------------------------ thresholds & config
 
 
 class ThresholdUpdate(BaseModel):
-    """Model for updating thresholds"""
-    global_threshold: Optional[int] = Field(None, ge=1)
-    zone_thresholds: Optional[Dict[str, int]] = None
+    """``zone_thresholds`` values of ``null`` remove that zone's threshold."""
+
+    global_threshold: int | None = Field(None, ge=1, le=100_000)
+    zone_thresholds: dict[str, int | None] | None = None
+
+    @field_validator("zone_thresholds")
+    @classmethod
+    def _positive(cls, value: dict[str, int | None] | None) -> dict[str, int | None] | None:
+        for zone, threshold in (value or {}).items():
+            if threshold is not None and threshold < 1:
+                raise ValueError(f"threshold for '{zone}' must be >= 1")
+        return value
 
 
-# ==================== Activity Log Models ====================
+# ------------------------------------------------------------------ logs & alerts
 
-class ActivityLogBase(BaseModel):
-    """Base activity log model"""
+
+class ActivityLog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: datetime = Field(default_factory=utcnow)
     category: LogCategory
     action: LogAction
-    details: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    user_id: str | None = None
+    username: str | None = None
+    ip_address: str | None = None
+    details: str | None = None
+    metadata: dict[str, Any] | None = None
 
+    @field_validator("timestamp")
+    @classmethod
+    def _aware(cls, value: datetime) -> datetime:
+        return as_aware(value)
 
-class ActivityLogCreate(ActivityLogBase):
-    """Model for creating activity log"""
-    user_id: Optional[str] = None
-    username: Optional[str] = None
-    ip_address: Optional[str] = None
-
-
-class ActivityLog(ActivityLogBase):
-    """Activity log model with all fields"""
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=datetime.now)
-    user_id: Optional[str] = None
-    username: Optional[str] = None
-    ip_address: Optional[str] = None
-
-
-class ActivityLogFilter(BaseModel):
-    """Filter for querying activity logs"""
-    category: Optional[LogCategory] = None
-    action: Optional[LogAction] = None
-    user_id: Optional[str] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    limit: int = Field(default=100, ge=1, le=1000)
-    offset: int = Field(default=0, ge=0)
-
-
-# ==================== Alert History Models ====================
 
 class AlertRecord(BaseModel):
-    """Record of an alert occurrence"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    timestamp: datetime = Field(default_factory=datetime.now)
-    alert_type: str  # 'global' or zone name
+    timestamp: datetime = Field(default_factory=utcnow)
+    alert_type: str  # "global" or a zone name
     threshold: int
     actual_count: int
     acknowledged: bool = False
-    acknowledged_by: Optional[str] = None
-    acknowledged_at: Optional[datetime] = None
+    acknowledged_by: str | None = None
+    acknowledged_at: datetime | None = None
 
-
-# ==================== Config Models ====================
-
-class SystemConfig(BaseModel):
-    """System configuration model"""
-    cameras: List[Camera] = Field(default_factory=list)
-    thresholds: ThresholdConfig = Field(default_factory=ThresholdConfig)
-    log_retention_days: int = Field(default=30, ge=1, le=365)
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+    @field_validator("timestamp")
+    @classmethod
+    def _aware(cls, value: datetime) -> datetime:
+        return as_aware(value)

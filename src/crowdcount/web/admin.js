@@ -3,7 +3,7 @@
  * Handles all admin panel functionality including API calls and UI updates
  */
 
-const API_BASE = "";
+const API_BASE = "/api";
 let currentSection = "dashboard";
 let authToken = null;
 

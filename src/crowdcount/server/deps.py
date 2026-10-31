@@ -1,148 +1,96 @@
-"""
-Authentication Middleware
-Provides FastAPI dependencies for route protection and role-based access control.
-"""
+"""Shared services and FastAPI dependencies (auth, role checks, client IP)."""
 
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional
+from __future__ import annotations
 
-from .auth import decode_token, is_token_blacklisted
-from .models import TokenData, UserRole
+import os
+import threading
+from dataclasses import dataclass, field
+from pathlib import Path
 
+from fastapi import Depends, HTTPException, Request, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-# Security scheme for JWT Bearer token
-security = HTTPBearer(auto_error=False)
-
-
-async def get_client_ip(request: Request) -> str:
-    """Extract client IP address from request"""
-    # Check for forwarded headers (when behind proxy)
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip
-    
-    # Fall back to direct client IP
-    if request.client:
-        return request.client.host
-    return "unknown"
+from crowdcount.config import Settings
+from crowdcount.server.audit import AuditLog
+from crowdcount.server.auth import TokenService, UserStore, load_or_create_secret
+from crowdcount.server.config_store import ConfigStore
+from crowdcount.server.models import TokenData, UserRole
+from crowdcount.server.storage import JsonStore
+from crowdcount.state import SharedState
 
 
-async def get_token_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
-) -> Optional[str]:
-    """Get token from request, returns None if not present"""
-    if credentials is None:
-        return None
-    return credentials.credentials
+@dataclass
+class Services:
+    """Everything request handlers need, built once per app."""
 
+    settings: Settings
+    state: SharedState
+    users: UserStore
+    tokens: TokenService
+    audit: AuditLog
+    config: ConfigStore
+    trust_proxy: bool = False
+    zones_lock: threading.Lock = field(default_factory=threading.Lock)
 
-async def get_current_user_optional(
-    token: Optional[str] = Depends(get_token_optional)
-) -> Optional[TokenData]:
-    """Get current user from token, returns None if not authenticated"""
-    if token is None:
-        return None
-    
-    if is_token_blacklisted(token):
-        return None
-    
-    token_data = decode_token(token)
-    return token_data
+    @property
+    def zones_file(self) -> Path:
+        return self.settings.zones_file
 
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
-) -> TokenData:
-    """
-    Get current authenticated user.
-    Raises 401 if not authenticated.
-    """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    
-    if credentials is None:
-        raise credentials_exception
-    
-    token = credentials.credentials
-    
-    if is_token_blacklisted(token):
-        raise credentials_exception
-    
-    token_data = decode_token(token)
-    if token_data is None:
-        raise credentials_exception
-    
-    return token_data
-
-
-async def get_current_active_user(
-    current_user: TokenData = Depends(get_current_user)
-) -> TokenData:
-    """
-    Get current active user.
-    Can be extended to check if user is active/not banned.
-    """
-    # Here you could add additional checks like:
-    # - Is user still active in database?
-    # - Is user banned?
-    # For now, just return the user
-    return current_user
-
-
-async def require_admin(
-    current_user: TokenData = Depends(get_current_user)
-) -> TokenData:
-    """
-    Require admin role for access.
-    Raises 403 if user is not an admin.
-    """
-    if current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin privileges required"
+    @classmethod
+    def create(cls, settings: Settings, state: SharedState) -> Services:
+        data = settings.data_dir
+        return cls(
+            settings=settings,
+            state=state,
+            users=UserStore(JsonStore(data / "users.json", lambda: {"users": []}, private=True)),
+            tokens=TokenService(load_or_create_secret(data, os.environ)),
+            audit=AuditLog(
+                JsonStore(data / "activity_logs.json", lambda: {"logs": []}),
+                JsonStore(data / "alerts_history.json", lambda: {"alerts": []}),
+            ),
+            config=ConfigStore(JsonStore(data / "config.json", dict)),
+            trust_proxy=os.environ.get("CROWDCOUNT_TRUST_PROXY", "").lower() in {"1", "true", "yes"},
         )
-    return current_user
 
 
-async def require_user_or_admin(
-    current_user: TokenData = Depends(get_current_user)
+def get_services(request: Request) -> Services:
+    return request.app.state.services
+
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def bearer_token(credentials: HTTPAuthorizationCredentials | None = Depends(_bearer)) -> str | None:
+    return credentials.credentials if credentials else None
+
+
+def current_user(
+    token: str | None = Depends(bearer_token), services: Services = Depends(get_services)
 ) -> TokenData:
-    """
-    Require at least user role (user or admin).
-    """
-    if current_user.role not in [UserRole.USER, UserRole.ADMIN]:
+    """The authenticated user; 401 if the token is missing, invalid, expired or revoked."""
+    data = services.tokens.decode(token) if token else None
+    if data is None:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User privileges required"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    return current_user
+    return data
 
 
-class RoleChecker:
-    """
-    Reusable role checker dependency.
-    Usage: Depends(RoleChecker([UserRole.ADMIN]))
-    """
-    def __init__(self, allowed_roles: list):
-        self.allowed_roles = allowed_roles
-    
-    def __call__(self, current_user: TokenData = Depends(get_current_user)) -> TokenData:
-        if current_user.role not in self.allowed_roles:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Role {current_user.role} not authorized. Required: {self.allowed_roles}"
-            )
-        return current_user
+def require_admin(user: TokenData = Depends(current_user)) -> TokenData:
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required")
+    return user
 
 
-# Pre-configured role checkers
-admin_only = RoleChecker([UserRole.ADMIN])
-user_or_admin = RoleChecker([UserRole.USER, UserRole.ADMIN])
+def client_ip(request: Request, services: Services = Depends(get_services)) -> str:
+    """Client address for the audit log. Proxy headers are honoured only when
+    ``CROWDCOUNT_TRUST_PROXY`` is set, since clients can forge them."""
+    if services.trust_proxy:
+        forwarded = request.headers.get("x-forwarded-for")
+        if forwarded:
+            return forwarded.split(",")[0].strip()
+        if real_ip := request.headers.get("x-real-ip"):
+            return real_ip
+    return request.client.host if request.client else "unknown"

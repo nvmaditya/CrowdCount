@@ -1,386 +1,196 @@
-"""
-Activity Logging Service
-Provides thread-safe activity logging and log management.
-"""
+"""Activity log and alert history, persisted as JSON in the data directory."""
 
-import json
-import threading
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import List, Optional, Dict, Any
-import io
+from __future__ import annotations
+
 import csv
+import io
+import logging
+from datetime import datetime, timedelta
+from typing import Any
 
-from .models import (
-    ActivityLog, ActivityLogCreate, ActivityLogFilter,
-    LogCategory, LogAction, AlertRecord
+from crowdcount.server.models import (
+    ActivityLog,
+    AlertRecord,
+    LogAction,
+    LogCategory,
+    as_aware,
+    utcnow,
 )
+from crowdcount.server.storage import JsonStore
+from crowdcount.state import Alert
+
+logger = logging.getLogger(__name__)
+
+#: Hard cap on stored entries per file, independent of the retention period.
+MAX_ENTRIES = 20_000
 
 
-# Data file paths
-DATA_DIR = Path.cwd() / "data"
-LOGS_FILE = DATA_DIR / "activity_logs.json"
-ALERTS_FILE = DATA_DIR / "alerts_history.json"
-
-# Thread lock for file operations
-_logs_lock = threading.RLock()
-_alerts_lock = threading.RLock()
-
-# Default retention period
-DEFAULT_RETENTION_DAYS = 30
+def _in_range(ts: datetime, start: datetime | None, end: datetime | None) -> bool:
+    return (start is None or ts >= as_aware(start)) and (end is None or ts <= as_aware(end))
 
 
-def _ensure_data_dir():
-    """Ensure data directory exists"""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+class AuditLog:
+    """Append-only activity log plus a record of every threshold breach."""
 
+    def __init__(self, logs: JsonStore, alerts: JsonStore, max_entries: int = MAX_ENTRIES) -> None:
+        self._logs = logs
+        self._alerts = alerts
+        self._max = max_entries
 
-# ==================== Activity Log Functions ====================
+    # ------------------------------------------------------------------ activity log
 
-def _load_logs() -> List[dict]:
-    """Load activity logs from JSON file"""
-    _ensure_data_dir()
-    
-    with _logs_lock:
-        if not LOGS_FILE.exists():
-            return []
-        try:
-            with open(LOGS_FILE, 'r') as f:
-                data = json.load(f)
-                return data.get("logs", [])
-        except (json.JSONDecodeError, FileNotFoundError):
-            return []
+    def log(
+        self,
+        category: LogCategory,
+        action: LogAction,
+        *,
+        user_id: str | None = None,
+        username: str | None = None,
+        ip_address: str | None = None,
+        details: str | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> ActivityLog:
+        entry = ActivityLog(
+            category=category,
+            action=action,
+            user_id=user_id,
+            username=username,
+            ip_address=ip_address,
+            details=details,
+            metadata=metadata,
+        )
 
+        def append(data: dict[str, Any]) -> None:
+            logs = data.setdefault("logs", [])
+            logs.append(entry.model_dump(mode="json"))
+            if len(logs) > self._max:
+                del logs[: len(logs) - self._max]
 
-def _save_logs(logs: List[dict]):
-    """Save activity logs to JSON file"""
-    _ensure_data_dir()
-    
-    with _logs_lock:
-        with open(LOGS_FILE, 'w') as f:
-            json.dump({"logs": logs}, f, indent=2, default=str)
+        self._logs.update(append)
+        return entry
 
+    def _all_logs(self) -> list[ActivityLog]:
+        out = []
+        for raw in self._logs.read().get("logs", []):
+            try:
+                out.append(ActivityLog(**raw))
+            except (TypeError, ValueError):
+                continue  # skip malformed rows rather than failing the whole query
+        return out
 
-def log_activity(
-    category: LogCategory,
-    action: LogAction,
-    user_id: Optional[str] = None,
-    username: Optional[str] = None,
-    ip_address: Optional[str] = None,
-    details: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None
-) -> ActivityLog:
-    """
-    Create a new activity log entry.
-    Thread-safe logging function.
-    """
-    log_entry = ActivityLog(
-        category=category,
-        action=action,
-        user_id=user_id,
-        username=username,
-        ip_address=ip_address,
-        details=details,
-        metadata=metadata,
-        timestamp=datetime.now()
-    )
-    
-    logs = _load_logs()
-    logs.append(log_entry.dict())
-    _save_logs(logs)
-    
-    return log_entry
+    def query(
+        self,
+        *,
+        category: LogCategory | None = None,
+        action: LogAction | None = None,
+        user_id: str | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list[ActivityLog], int]:
+        """Matching entries, newest first, plus the total number of matches."""
+        logs = [
+            entry
+            for entry in self._all_logs()
+            if (category is None or entry.category == category)
+            and (action is None or entry.action == action)
+            and (user_id is None or entry.user_id == user_id)
+            and _in_range(entry.timestamp, start, end)
+        ]
+        logs.sort(key=lambda e: e.timestamp, reverse=True)
+        return logs[offset : offset + limit], len(logs)
 
+    def export_csv(self, **filters: Any) -> str:
+        logs, _ = self.query(limit=self._max, **filters)
+        out = io.StringIO()
+        fields = ["timestamp", "category", "action", "username", "user_id", "ip_address", "details"]
+        writer = csv.DictWriter(out, fieldnames=fields)
+        writer.writeheader()
+        for e in logs:
+            writer.writerow(
+                {
+                    "timestamp": e.timestamp.isoformat(),
+                    "category": e.category.value,
+                    "action": e.action.value,
+                    "username": e.username or "",
+                    "user_id": e.user_id or "",
+                    "ip_address": e.ip_address or "",
+                    "details": e.details or "",
+                }
+            )
+        return out.getvalue()
 
-def get_logs(
-    category: Optional[LogCategory] = None,
-    action: Optional[LogAction] = None,
-    user_id: Optional[str] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    limit: int = 100,
-    offset: int = 0
-) -> List[ActivityLog]:
-    """
-    Query activity logs with optional filters.
-    Returns logs in reverse chronological order (newest first).
-    """
-    logs = _load_logs()
-    
-    # Convert to ActivityLog objects
-    log_objects = []
-    for log_data in logs:
-        try:
-            log_objects.append(ActivityLog(**log_data))
-        except Exception:
-            continue
-    
-    # Apply filters
-    filtered_logs = log_objects
-    
-    if category:
-        filtered_logs = [l for l in filtered_logs if l.category == category]
-    
-    if action:
-        filtered_logs = [l for l in filtered_logs if l.action == action]
-    
-    if user_id:
-        filtered_logs = [l for l in filtered_logs if l.user_id == user_id]
-    
-    if start_date:
-        filtered_logs = [l for l in filtered_logs if l.timestamp >= start_date]
-    
-    if end_date:
-        filtered_logs = [l for l in filtered_logs if l.timestamp <= end_date]
-    
-    # Sort by timestamp (newest first)
-    filtered_logs.sort(key=lambda x: x.timestamp, reverse=True)
-    
-    # Apply pagination
-    return filtered_logs[offset:offset + limit]
+    def cleanup(self, retention_days: int) -> int:
+        """Delete log entries and alert records older than ``retention_days``."""
+        cutoff = utcnow() - timedelta(days=retention_days)
 
+        def prune(key: str, model: type[ActivityLog] | type[AlertRecord]):
+            def fn(data: dict[str, Any]) -> int:
+                kept = []
+                for raw in data.get(key, []):
+                    try:
+                        if model(**raw).timestamp < cutoff:
+                            continue
+                    except (TypeError, ValueError):
+                        pass  # keep rows we can't parse; never silently drop data
+                    kept.append(raw)
+                removed = len(data.get(key, [])) - len(kept)
+                data[key] = kept
+                return removed
 
-def get_log_count(
-    category: Optional[LogCategory] = None,
-    action: Optional[LogAction] = None,
-    user_id: Optional[str] = None
-) -> int:
-    """Get total count of logs matching filters"""
-    logs = get_logs(category=category, action=action, user_id=user_id, limit=10000)
-    return len(logs)
+            return fn
 
+        return self._logs.update(prune("logs", ActivityLog)) + self._alerts.update(
+            prune("alerts", AlertRecord)
+        )
 
-def cleanup_old_logs(retention_days: int = DEFAULT_RETENTION_DAYS) -> int:
-    """
-    Remove logs older than retention period.
-    Returns number of deleted logs.
-    """
-    cutoff_date = datetime.now() - timedelta(days=retention_days)
-    
-    logs = _load_logs()
-    original_count = len(logs)
-    
-    # Filter out old logs
-    filtered_logs = []
-    for log_data in logs:
-        try:
-            timestamp = log_data.get("timestamp")
-            if isinstance(timestamp, str):
-                timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-            if timestamp >= cutoff_date:
-                filtered_logs.append(log_data)
-        except Exception:
-            # Keep logs that can't be parsed
-            filtered_logs.append(log_data)
-    
-    _save_logs(filtered_logs)
-    
-    deleted_count = original_count - len(filtered_logs)
-    return deleted_count
+    # ------------------------------------------------------------------ alerts
 
+    def record_alert(self, alert: Alert) -> AlertRecord:
+        """Persist a newly active alert. Registered as a ``SharedState`` alert listener."""
+        record = AlertRecord(alert_type=alert.key, threshold=alert.threshold, actual_count=alert.current)
+        self._alerts.update(lambda data: data.setdefault("alerts", []).append(record.model_dump(mode="json")))
+        scope = "Total" if alert.kind == "global" else f"Zone '{alert.zone}'"
+        self.log(
+            LogCategory.ALERT,
+            LogAction.THRESHOLD_EXCEEDED,
+            details=f"{scope} count {alert.current} exceeded threshold {alert.threshold}",
+            metadata={"alert_id": record.id, "alert_type": alert.key},
+        )
+        logger.warning("Alert: %s count %d exceeded threshold %d", scope, alert.current, alert.threshold)
+        return record
 
-def export_logs_csv(
-    category: Optional[LogCategory] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
-) -> str:
-    """
-    Export logs to CSV format.
-    Returns CSV string.
-    """
-    logs = get_logs(
-        category=category,
-        start_date=start_date,
-        end_date=end_date,
-        limit=10000
-    )
-    
-    output = io.StringIO()
-    fieldnames = ['timestamp', 'category', 'action', 'username', 'user_id', 'ip_address', 'details']
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
-    writer.writeheader()
-    
-    for log in logs:
-        writer.writerow({
-            'timestamp': log.timestamp.isoformat(),
-            'category': log.category.value,
-            'action': log.action.value,
-            'username': log.username or '',
-            'user_id': log.user_id or '',
-            'ip_address': log.ip_address or '',
-            'details': log.details or ''
-        })
-    
-    return output.getvalue()
+    def alerts(
+        self,
+        *,
+        alert_type: str | None = None,
+        start: datetime | None = None,
+        end: datetime | None = None,
+        limit: int = 100,
+    ) -> list[AlertRecord]:
+        records = []
+        for raw in self._alerts.read().get("alerts", []):
+            try:
+                records.append(AlertRecord(**raw))
+            except (TypeError, ValueError):
+                continue
+        records = [
+            r
+            for r in records
+            if (alert_type is None or r.alert_type == alert_type) and _in_range(r.timestamp, start, end)
+        ]
+        records.sort(key=lambda r: r.timestamp, reverse=True)
+        return records[:limit]
 
+    def acknowledge(self, alert_id: str, username: str) -> AlertRecord | None:
+        def ack(data: dict[str, Any]) -> AlertRecord | None:
+            for raw in data.get("alerts", []):
+                if raw.get("id") == alert_id:
+                    raw.update(
+                        acknowledged=True, acknowledged_by=username, acknowledged_at=utcnow().isoformat()
+                    )
+                    return AlertRecord(**raw)
+            return None
 
-# ==================== Alert History Functions ====================
-
-def _load_alerts() -> List[dict]:
-    """Load alert history from JSON file"""
-    _ensure_data_dir()
-    
-    with _alerts_lock:
-        if not ALERTS_FILE.exists():
-            return []
-        try:
-            with open(ALERTS_FILE, 'r') as f:
-                data = json.load(f)
-                return data.get("alerts", [])
-        except (json.JSONDecodeError, FileNotFoundError):
-            return []
-
-
-def _save_alerts(alerts: List[dict]):
-    """Save alert history to JSON file"""
-    _ensure_data_dir()
-    
-    with _alerts_lock:
-        with open(ALERTS_FILE, 'w') as f:
-            json.dump({"alerts": alerts}, f, indent=2, default=str)
-
-
-def record_alert(
-    alert_type: str,
-    threshold: int,
-    actual_count: int
-) -> AlertRecord:
-    """
-    Record a threshold breach alert.
-    """
-    alert = AlertRecord(
-        alert_type=alert_type,
-        threshold=threshold,
-        actual_count=actual_count,
-        timestamp=datetime.now()
-    )
-    
-    alerts = _load_alerts()
-    alerts.append(alert.dict())
-    _save_alerts(alerts)
-    
-    # Also log as activity
-    log_activity(
-        category=LogCategory.ALERT,
-        action=LogAction.THRESHOLD_EXCEEDED,
-        details=f"{alert_type} threshold exceeded: {actual_count} > {threshold}"
-    )
-    
-    return alert
-
-
-def get_alert_history(
-    alert_type: Optional[str] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    limit: int = 100
-) -> List[AlertRecord]:
-    """Get alert history with optional filters"""
-    alerts = _load_alerts()
-    
-    alert_objects = []
-    for alert_data in alerts:
-        try:
-            alert_objects.append(AlertRecord(**alert_data))
-        except Exception:
-            continue
-    
-    # Apply filters
-    if alert_type:
-        alert_objects = [a for a in alert_objects if a.alert_type == alert_type]
-    
-    if start_date:
-        alert_objects = [a for a in alert_objects if a.timestamp >= start_date]
-    
-    if end_date:
-        alert_objects = [a for a in alert_objects if a.timestamp <= end_date]
-    
-    # Sort by timestamp (newest first)
-    alert_objects.sort(key=lambda x: x.timestamp, reverse=True)
-    
-    return alert_objects[:limit]
-
-
-def acknowledge_alert(
-    alert_id: str,
-    acknowledged_by: str
-) -> bool:
-    """Acknowledge an alert"""
-    alerts = _load_alerts()
-    
-    for alert in alerts:
-        if alert.get("id") == alert_id:
-            alert["acknowledged"] = True
-            alert["acknowledged_by"] = acknowledged_by
-            alert["acknowledged_at"] = datetime.now().isoformat()
-            _save_alerts(alerts)
-            return True
-    
-    return False
-
-
-# ==================== Convenience Logging Functions ====================
-
-def log_login_success(user_id: str, username: str, ip_address: str):
-    """Log successful login"""
-    return log_activity(
-        category=LogCategory.AUTH,
-        action=LogAction.LOGIN_SUCCESS,
-        user_id=user_id,
-        username=username,
-        ip_address=ip_address,
-        details=f"User {username} logged in successfully"
-    )
-
-
-def log_login_failed(username: str, ip_address: str):
-    """Log failed login attempt"""
-    return log_activity(
-        category=LogCategory.AUTH,
-        action=LogAction.LOGIN_FAILED,
-        username=username,
-        ip_address=ip_address,
-        details=f"Failed login attempt for user {username}"
-    )
-
-
-def log_logout(user_id: str, username: str, ip_address: str):
-    """Log logout"""
-    return log_activity(
-        category=LogCategory.AUTH,
-        action=LogAction.LOGOUT,
-        user_id=user_id,
-        username=username,
-        ip_address=ip_address,
-        details=f"User {username} logged out"
-    )
-
-
-def log_config_change(
-    action: LogAction,
-    user_id: str,
-    username: str,
-    ip_address: str,
-    details: str,
-    metadata: Optional[Dict[str, Any]] = None
-):
-    """Log configuration change"""
-    return log_activity(
-        category=LogCategory.CONFIG,
-        action=action,
-        user_id=user_id,
-        username=username,
-        ip_address=ip_address,
-        details=details,
-        metadata=metadata
-    )
-
-
-def log_system_event(action: LogAction, details: str, metadata: Optional[Dict[str, Any]] = None):
-    """Log system event"""
-    return log_activity(
-        category=LogCategory.SYSTEM,
-        action=action,
-        details=details,
-        metadata=metadata
-    )
+        return self._alerts.update(ack)

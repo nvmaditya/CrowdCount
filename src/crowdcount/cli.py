@@ -6,6 +6,7 @@ Commands:
     detect   detector only, with an OpenCV preview window; no web server
     serve    web dashboard and admin API only (no detector)
     zones    list, validate or interactively edit zone polygons
+    admin    account maintenance (reset a password)
 """
 
 from __future__ import annotations
@@ -127,6 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="run the detector and the web dashboard together")
     _add_video_args(run)
+    run.add_argument("--camera", help="use a camera saved in the admin panel, by name (instead of --source)")
     _add_detection_args(run)
     _add_server_args(run)
     run.set_defaults(func=cmd_run)
@@ -163,6 +165,16 @@ def build_parser() -> argparse.ArgumentParser:
     ze.set_defaults(func=cmd_zones_edit)
     for zp in (zl, zv, ze):
         zp.add_argument("--zones", dest="zones_file", type=Path, help="zones JSON file (default: zones.json)")
+
+    admin = sub.add_parser("admin", help="account maintenance")
+    asub = admin.add_subparsers(dest="admin_command", metavar="<action>", required=True)
+    _real_aadd = asub.add_parser
+    asub.add_parser = lambda name, **kw: _real_aadd(name, parents=[common], **kw)  # type: ignore[method-assign]
+    rp = asub.add_parser("reset-password", help="set a user's password (creates the admin if no users exist)")
+    rp.add_argument("--username", default="admin", help="account to change (default: admin)")
+    rp.add_argument("--password", help="new password (prompted for if omitted)")
+    rp.add_argument("--data-dir", type=Path, help="data directory (default: ./data)")
+    rp.set_defaults(func=cmd_admin_reset_password)
     return parser
 
 
@@ -240,9 +252,10 @@ class _ServerThread:
 
 
 def _make_app(settings: Settings) -> Any:
-    from crowdcount.server.app import app
+    from crowdcount.server.app import create_app
+    from crowdcount.state import shared_state
 
-    return app
+    return create_app(settings, shared_state, public_url=_dashboard_url(settings.host, settings.port))
 
 
 # --------------------------------------------------------------------------- detection
@@ -331,8 +344,28 @@ def _run_detection(
 # --------------------------------------------------------------------------- commands
 
 
+def _camera_source(settings: Settings, name: str) -> str:
+    from crowdcount.server.config_store import ConfigStore
+    from crowdcount.server.storage import JsonStore
+
+    store = ConfigStore(JsonStore(settings.data_dir / "config.json", dict))
+    camera = store.find_camera(name)
+    if camera is None:
+        known = ", ".join(c.name for c in store.cameras()) or "none saved yet"
+        raise ConfigError(f"no camera named '{name}' (cameras: {known}). Add one in the admin panel.")
+    if not camera.enabled:
+        raise ConfigError(f"camera '{camera.name}' is disabled in the admin panel")
+    logger.info("Using saved camera '%s'", camera.name)
+    return camera.source_url
+
+
 def cmd_run(args: argparse.Namespace) -> int:
-    return _run_detection(_settings(args), args, with_server=True, display_default=False)
+    if args.camera and args.source:
+        raise ConfigError("use either --camera or --source, not both")
+    settings = _settings(args)
+    if args.camera:
+        settings = _settings(args, {"source": _camera_source(settings, args.camera)})
+    return _run_detection(settings, args, with_server=True, display_default=False)
 
 
 def cmd_demo(args: argparse.Namespace) -> int:
@@ -409,6 +442,38 @@ def cmd_zones_edit(args: argparse.Namespace) -> int:
     overrides = {"source": args.source} if args.source is not None else {}
     settings = _settings(args, overrides)
     run_editor(VideoSource(_resolve_source(settings)), settings.zones_file)
+    return EXIT_OK
+
+
+def cmd_admin_reset_password(args: argparse.Namespace) -> int:
+    import getpass
+
+    from crowdcount.server.auth import UserStore
+    from crowdcount.server.models import MAX_PASSWORD_BYTES, UserRole
+    from crowdcount.server.storage import JsonStore
+
+    settings = _settings(args)
+    users = UserStore(JsonStore(settings.data_dir / "users.json", lambda: {"users": []}, private=True))
+    exists = users.get_by_username(args.username) is not None
+    if not exists and users.count():
+        raise ConfigError(f"no user named '{args.username}' in {settings.data_dir / 'users.json'}")
+
+    password = args.password
+    if password is None:
+        if not sys.stdin.isatty():
+            raise ConfigError("no terminal to prompt on; pass --password")
+        password = getpass.getpass(f"New password for {args.username}: ")
+        if getpass.getpass("Repeat it: ") != password:
+            raise ConfigError("passwords did not match")
+    if len(password) < 8 or len(password.encode()) > MAX_PASSWORD_BYTES:
+        raise ConfigError(f"password must be 8 characters to {MAX_PASSWORD_BYTES} bytes long")
+
+    if exists:
+        users.set_password(args.username, password)
+        print(f"Password updated for '{args.username}'.")
+    else:
+        users.create(args.username, password, UserRole.ADMIN)
+        print(f"Created admin '{args.username}'.")
     return EXIT_OK
 
 

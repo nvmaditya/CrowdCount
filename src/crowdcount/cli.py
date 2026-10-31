@@ -67,7 +67,8 @@ def _add_video_args(p: argparse.ArgumentParser, *, source: bool = True) -> None:
 def _add_detection_args(p: argparse.ArgumentParser) -> None:
     g = p.add_argument_group("detection")
     g.add_argument(
-        "--model", help="YOLO weights: stock name (yolov8n.pt ... yolov8x.pt) or path (default: yolov8m.pt)"
+        "--model",
+        help="YOLO weights: stock name (yolo26n.pt ... yolo26x.pt, yolo11m.pt, yolov8m.pt) or path (default: yolo26m.pt)",
     )
     g.add_argument("--device", help="auto, cpu, mps, cuda:0 ... (default: auto)")
     g.add_argument("--tracker", help="bytetrack, botsort, or a tracker YAML path (default: bytetrack)")
@@ -113,7 +114,7 @@ def _add_common_args(p: argparse.ArgumentParser, *, suppress: bool = False) -> N
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="crowdcount",
-        description="Real-time crowd monitoring: YOLOv8 detection, tracking, polygon zones and a live dashboard.",
+        description="Real-time crowd monitoring: YOLO detection, tracking, polygon zones and a live dashboard.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     _add_common_args(parser)
@@ -140,7 +141,7 @@ def build_parser() -> argparse.ArgumentParser:
         description=(
             "Downloads OpenCV's vtest.avi sample (8 MB, once) and runs the detector and dashboard on it, "
             "with zones drawn for that scene in <data dir>/demo-zones.json. Demo defaults, which any flag "
-            "overrides: --model yolov8n.pt --conf 0.35 --min-area 800 --loop."
+            "overrides: --model yolo26n.pt --conf 0.35 --min-area 800 --loop."
         ),
     )
     _add_video_args(demo, source=False)

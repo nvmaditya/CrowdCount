@@ -4,7 +4,7 @@
 </h1>
 
 <p align="center">
-  <strong>Real-time people counting for any camera: YOLOv8 detection, ByteTrack tracking, polygon zones and a live web dashboard, in one command.</strong>
+  <strong>Real-time people counting for any camera: YOLO26 detection, ByteTrack tracking, polygon zones and a live web dashboard, in one command.</strong>
 </p>
 
 <p align="center">
@@ -28,8 +28,9 @@ It is fully local, open source, and built to be read and extended.
 
 ## Features
 
-- **Detection and tracking.** YOLOv8 (`n` to `x`, or any COCO-trained Ultralytics weights) finds
-  people; ByteTrack, or BoT-SORT for moving cameras, gives each one a persistent ID.
+- **Detection and tracking.** YOLO26 (`n` to `x`) finds people by default; YOLO11, YOLOv8 or
+  other COCO-trained Ultralytics weights also work. ByteTrack, or BoT-SORT for moving cameras,
+  gives each person a persistent ID.
 - **Polygon zones.** Draw them on the live frame in the browser or in an OpenCV editor.
   Each zone gets live occupancy and a unique-track count; zones may overlap. Edits apply to the
   running detector within a second, with no restart.
@@ -45,7 +46,7 @@ It is fully local, open source, and built to be read and extended.
 - **Runs anywhere.** RTSP/HTTP streams (with reconnects) and video files. CPU, Apple silicon
   (MPS) or NVIDIA (CUDA), chosen automatically. Docker image included.
 - **Built to last.** One CLI, layered config (`crowdcount.toml`, env, flags), readable errors
-  with exit codes, 175 tests, and CI on Python 3.10 to 3.14.
+  with exit codes, 180+ tests, and CI on Python 3.10 to 3.14.
 
 <p align="center">
   <img src="docs/images/hero.jpg" width="820" alt="CrowdCount dashboard: a threshold alert banner, live counts, and the annotated video next to per-zone occupancy against thresholds">
@@ -95,7 +96,7 @@ crowdcount zones edit --source lobby.mp4
 
 # Benchmark a model on the demo clip and write metrics CSVs
 crowdcount detect --source demo --no-display --no-realtime --max-frames 300 \
-    --model yolov8s.pt --metrics-out runs/yolov8s
+    --model yolo26s.pt --metrics-out runs/yolo26s
 
 # Forgot the admin password
 crowdcount admin reset-password
@@ -108,7 +109,7 @@ Every command takes `--help`. A Dockerfile and compose file are included; see th
 
 ```mermaid
 flowchart LR
-    cam["RTSP camera · video file"] --> det["YOLOv8<br/>person detection"]
+    cam["RTSP camera · video file"] --> det["YOLO26<br/>person detection"]
     det --> trk["ByteTrack<br/>track IDs"]
     trk --> zon["Zones<br/>occupancy · unique tracks"]
     zon --> st[("Live state<br/>counts · 1 Hz history<br/>heatmap · alerts")]
@@ -134,7 +135,7 @@ defaults:
 source = "rtsp://user:pass@192.168.1.20/stream1"
 
 [detection]
-model = "yolov8s.pt"     # n, s, m (default), l, x
+model = "yolo26s.pt"     # yolo26 n, s, m (default), l, x
 tracker = "bytetrack"    # or "botsort", or a tracker YAML
 confidence = 0.45
 
@@ -155,16 +156,18 @@ clip, 300 frames, ByteTrack, measured with `crowdcount detect --source demo --no
 
 | Model | Apple M1 Pro, MPS | Apple M1 Pro, CPU | NVIDIA GPU |
 | --- | ---: | ---: | ---: |
-| yolov8n | 58 FPS | 30 FPS | _TODO: measure_ |
-| yolov8s | 51 FPS | 20 FPS | _TODO: measure_ |
-| yolov8m | 29 FPS | 11 FPS | _TODO: measure_ |
+| yolo26n | 65 FPS | 28 FPS | _TODO: measure_ |
+| yolo26s | 49 FPS | 17 FPS | _TODO: measure_ |
+| yolo26m (default) | 26 FPS | 10 FPS | _TODO: measure_ |
 
 <!-- TODO(maintainer): fill the NVIDIA column with `--device cuda:0` runs of the same command. -->
 
 Larger frames and denser crowds are slower. Video files are paced to their native frame rate
-unless you pass `--no-realtime`. Methodology, the BoT-SORT comparison and caveats are in
-[docs/tracking.md](docs/tracking.md#choosing-a-model). There are no accuracy figures: the
-repository has no labelled ground truth (see the roadmap).
+unless you pass `--no-realtime`. On this hardware YOLO11 and YOLOv8 are within about 5% of
+YOLO26 at the `n` and `s` sizes, and `yolov8m` is about 12% faster than `yolo26m` on the GPU.
+YOLO26 is the default for its higher accuracy on Ultralytics' COCO benchmark. The side-by-side comparison, methodology and caveats are in
+[docs/tracking.md](docs/tracking.md#choosing-a-model). This repository has no labelled ground
+truth, so it reports no accuracy figures of its own (see the roadmap).
 
 ## Documentation
 
@@ -208,7 +211,7 @@ dashboard footer links to the source. See [LICENSE](LICENSE) for the full terms.
 
 ## Credits
 
-- [Ultralytics YOLOv8](https://github.com/ultralytics/ultralytics): detection models and tracker implementations
+- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (YOLO26, YOLO11, YOLOv8): detection models and tracker implementations
 - [ByteTrack](https://arxiv.org/abs/2110.06864) (Zhang et al., ECCV 2022) and [BoT-SORT](https://arxiv.org/abs/2206.14651) (Aharon et al., 2022)
 - [OpenCV](https://opencv.org/): video I/O and drawing; the demo uses its `vtest.avi` sample clip
 - [FastAPI](https://fastapi.tiangolo.com/), [Bootstrap](https://getbootstrap.com/), [Bootstrap Icons](https://icons.getbootstrap.com/), [Chart.js](https://www.chartjs.org/), [ReportLab](https://www.reportlab.com/)

@@ -13,7 +13,7 @@ flowchart LR
         src["VideoSource<br/>RTSP/HTTP stream · video file"] --> pipe
         subgraph pipe["Pipeline (main thread)"]
             direction TB
-            det["PersonDetector<br/>YOLOv8 + ByteTrack"] --> filt["Box filters<br/>confidence · area · aspect"]
+            det["PersonDetector<br/>YOLO26 + ByteTrack"] --> filt["Box filters<br/>confidence · area · aspect"]
             filt --> zt["ZoneTracker<br/>point-in-polygon"]
             zt --> ann["Annotate<br/>boxes · trails · zones"]
         end

@@ -5,13 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "crowdcount"
 dynamic = ["version"]
-description = "Real-time crowd monitoring: YOLOv8 person detection, multi-object tracking, polygon zones and a live web dashboard."
+description = "Real-time crowd monitoring: YOLO person detection, multi-object tracking, polygon zones and a live web dashboard."
 readme = "README.md"
 requires-python = ">=3.10"
 license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 authors = [{ name = "Aditya Khandelwal" }]
-keywords = ["computer-vision", "yolov8", "object-tracking", "bytetrack", "crowd-counting", "fastapi"]
+keywords = ["computer-vision", "yolo", "yolo26", "object-tracking", "bytetrack", "crowd-counting", "fastapi"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Web Environment",
@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Recognition",
 ]
 dependencies = [
-    "ultralytics>=8.3,<9",
+    "ultralytics>=8.4.142,<9",  # YOLO26 with its default NMS head
     "lap>=0.5.12",
     "opencv-python>=4.8,<6",
     "numpy>=1.24",

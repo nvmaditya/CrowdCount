@@ -39,7 +39,7 @@ class Settings:
     stride: int = 1
     realtime: bool = True
     # [detection]
-    model: str = "yolov8m.pt"
+    model: str = "yolo26m.pt"
     device: str = "auto"
     tracker: str = "bytetrack"
     confidence: float = 0.5

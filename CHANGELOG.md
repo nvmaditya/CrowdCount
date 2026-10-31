@@ -17,7 +17,7 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
   applied to the running detector without a restart, and a redesigned UI in light and dark.
 - Real authentication: no default password, a generated token secret, maintained crypto
   libraries.
-- 175 tests and CI on Python 3.10, 3.12 and 3.14, plus an end-to-end demo job and a Docker job.
+- 183 tests and CI on Python 3.10, 3.12 and 3.14, plus an end-to-end demo job and a Docker job.
 
 ### Breaking changes
 
@@ -31,6 +31,9 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
 - **API moved under `/api`.** `/` serves the dashboard. `POST /alerts/threshold` is removed; use
   `PUT /api/admin/config/thresholds`. `/api/heatmap` returns JPEG. See [API changes](docs/api.md#changes-from-1x).
 - **Default bind address is `127.0.0.1`** (was `0.0.0.0`). Pass `--host 0.0.0.0` to expose it.
+- **Default model is YOLO26** (`yolo26m.pt`, was `yolov8m.pt`; the demo uses `yolo26n.pt`), for
+  higher COCO accuracy at the same size. Pass `--model yolov8m.pt` for the old one. Requires
+  ultralytics 8.4.142 or newer.
 - **`--source` has no default.** Pass a video file or stream URL (or use `crowdcount demo`).
 - **`--speed` is replaced by `--stride`** (integer frame stride, which is what `--speed` did).
 - **Zone `color` is RGB**, as documented; 1.x passed it to OpenCV as BGR.
@@ -62,7 +65,7 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
 - Dockerfile, compose file, Makefile, GitHub Actions CI, Dependabot.
 - Documentation: README, `docs/` (architecture, configuration, zones, tracking, dashboard, API,
   deployment, troubleshooting), CONTRIBUTING.
-- Measured throughput for yolov8n/s/m on CPU and Apple MPS ([tracking](docs/tracking.md#choosing-a-model)).
+- A measured YOLOv8 vs YOLO11 vs YOLO26 comparison (n/s/m, CPU and Apple MPS) ([tracking](docs/tracking.md#choosing-a-model)).
 
 ### Fixed
 

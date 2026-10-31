@@ -14,8 +14,8 @@ realtime = true
 
 [detection]
 # YOLO weights: a stock name (downloaded on first use) or a path to a .pt file.
-# yolov8n.pt is fastest, yolov8x.pt most accurate.
-model = "yolov8m.pt"
+# yolo26n.pt is fastest, yolo26x.pt most accurate; yolo11*.pt and yolov8*.pt also work.
+model = "yolo26m.pt"
 # auto picks CUDA, then Apple MPS, then CPU. Or set cpu / mps / cuda:0.
 device = "auto"
 # bytetrack, botsort, or a path to an Ultralytics tracker YAML.

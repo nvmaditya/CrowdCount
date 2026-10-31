@@ -23,7 +23,7 @@ DEMO_VIDEO_SHA256 = "45cddc9490be69345cbdab64ca583be65987e864ca408038e648db99e10
 
 #: Settings tuned for the small, distant figures in the sample video.
 DEMO_SETTINGS = {
-    "model": "yolov8n.pt",
+    "model": "yolo26n.pt",
     "confidence": 0.35,
     "min_box_area": 800,
     "loop": True,

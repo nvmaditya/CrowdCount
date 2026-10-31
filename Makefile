@@ -32,7 +32,7 @@ format: install  ## Auto-fix lint issues and format
 
 smoke: install  ## Run the real detector headless on 60 demo frames
 	$(BIN)/crowdcount detect --source demo --no-display --no-realtime --max-frames 60 \
-		--model yolov8n.pt --conf 0.35 --min-area 800 --metrics-out runs/smoke
+		--model yolo26n.pt --conf 0.35 --min-area 800 --metrics-out runs/smoke
 
 clean:  ## Remove caches and run outputs (keeps .venv and data/)
 	rm -rf .pytest_cache .ruff_cache runs build dist src/*.egg-info

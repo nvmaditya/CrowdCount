@@ -54,7 +54,7 @@ Errors use FastAPI's shape: `{"detail": "..."}` (validation errors give a list).
   "zones": {"East plaza": {"current": 3, "total_visitors": 43, "threshold": 2}},
   "alerts": {"East plaza": {"type": "zone", "zone": "East plaza", "threshold": 2, "current": 3, "exceeded": true}},
   "global_threshold": 50,
-  "status": {"state": "running", "source": "vtest.avi", "model": "yolov8n.pt", "tracker": "bytetrack",
+  "status": {"state": "running", "source": "vtest.avi", "model": "yolo26n.pt", "tracker": "bytetrack",
              "device": "mps", "fps": 9.6, "frame_width": 768, "frame_height": 576},
   "version": "2.0.0"
 }

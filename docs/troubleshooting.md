@@ -19,12 +19,12 @@ Test the URL in VLC first. Many cameras need a path such as `/stream1` or `/h264
 credentials in the URL (`rtsp://user:pass@host:554/stream1`). Once running, a dropped stream is
 retried 5 times with increasing delays before the detector stops.
 
-**`could not load model 'yolov8m.pt': …`**
+**`could not load model 'yolo26m.pt': …`**
 Stock weights download on first use from GitHub into `~/.cache/crowdcount/models` (or
 `CROWDCOUNT_CACHE_DIR`). Offline? Copy the `.pt` file there or pass `--model /path/to/file.pt`.
 
 **`model file not found: …`**
-The path doesn't exist and isn't a stock name like `yolov8n.pt`.
+The path doesn't exist and isn't a stock name like `yolo26n.pt`.
 
 **`cannot listen on 127.0.0.1:8080 (Address already in use)`**
 Another CrowdCount (or something else) holds the port. Use `--port 8081`, or find it with
@@ -45,7 +45,7 @@ A typo in `crowdcount.toml`. The message lists the valid keys.
 
 **People are missed.**
 Lower `--conf` (for example 0.35) and `--min-area` (for example 600) for small or distant
-people; try a larger model (`yolov8s.pt`, `yolov8m.pt`). Check the preview (`--display`) or the
+people; try a larger model (`yolo26m.pt`, `yolo26l.pt`). Check the preview (`--display`) or the
 dashboard to see what is detected.
 
 **Zone counts stay at 0.**
@@ -93,7 +93,7 @@ fresh. Fix and restore it while the server is stopped.
 - Check the status pill or `run_summary.json` for throughput.
 - Use `--device mps` (Apple silicon) or `--device cuda:0` (NVIDIA). `auto` already prefers them
   when PyTorch supports them.
-- Smaller model: `yolov8n.pt` is several times faster than `yolov8m.pt` on CPU
+- Smaller model: `yolo26n.pt` is about 2.5× as fast as the default `yolo26m.pt` on the M1 Pro
   ([tracking.md](tracking.md#choosing-a-model)).
 - `--stride 2` halves the work.
 - For files, `--realtime` (the default) deliberately caps processing at the video's frame rate.

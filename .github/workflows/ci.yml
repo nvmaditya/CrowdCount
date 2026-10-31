@@ -74,11 +74,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/crowdcount
-          key: crowdcount-assets-v1
+          key: crowdcount-assets-v2
       - name: Detector on the demo video
         run: >
           crowdcount detect --source demo --no-display --no-realtime --max-frames 60
-          --model yolov8n.pt --conf 0.35 --min-area 800 --metrics-out runs/ci
+          --model yolo26n.pt --conf 0.35 --min-area 800 --metrics-out runs/ci
       - name: Dashboard and API (the README quickstart)
         env:
           CROWDCOUNT_ADMIN_PASSWORD: ci-admin-password

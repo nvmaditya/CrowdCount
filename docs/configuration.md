@@ -33,7 +33,7 @@ prints the version. Run any command with `--help` for its flags.
 | --- | --- | --- |
 | `--source` | (required) | Video file or stream URL (`rtsp://`, `http://`...). Not on `demo`. |
 | `--camera NAME` | | (`run` only) Use a source saved in the admin panel's Cameras page. |
-| `--model` | `yolov8m.pt` | YOLO weights: a stock name (downloaded on first use to the cache dir) or a `.pt` path. |
+| `--model` | `yolo26m.pt` | YOLO weights: a stock name such as `yolo26s.pt`, `yolo11m.pt` or `yolov8m.pt` (downloaded on first use to the cache dir), or a `.pt` path. |
 | `--device` | `auto` | `auto` picks `cuda:0`, then `mps` (Apple silicon), then `cpu`. |
 | `--tracker` | `bytetrack` | `bytetrack`, `botsort`, or an Ultralytics tracker YAML ([tracking.md](tracking.md)). |
 | `--conf` | `0.5` | Minimum detection confidence. |
@@ -48,7 +48,7 @@ prints the version. Run any command with `--help` for its flags.
 | `--max-frames N` | | Stop after N processed frames. |
 | `--metrics-out DIR` | | Write per-frame CSVs and `run_summary.json` (see below). |
 
-`demo` changes some defaults (any flag still overrides them): `--model yolov8n.pt --conf 0.35
+`demo` changes some defaults (any flag still overrides them): `--model yolo26n.pt --conf 0.35
 --min-area 800 --loop`. The people in the sample video are small and distant.
 
 ### Flags for `run`, `demo` and `serve`
@@ -84,7 +84,7 @@ stride = 1
 realtime = true
 
 [detection]
-model = "yolov8s.pt"
+model = "yolo26s.pt"
 device = "auto"
 tracker = "bytetrack"
 confidence = 0.45

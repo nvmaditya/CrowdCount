@@ -112,7 +112,7 @@ def resolve_device(name: str) -> str:
 def resolve_model_path(model: str, models_dir: Path | None) -> str:
     """Return a loadable path for ``model``.
 
-    Existing paths are used as-is. A bare stock name like ``yolov8n.pt`` resolves into
+    Existing paths are used as-is. A bare stock name like ``yolo26n.pt`` resolves into
     ``models_dir`` so weights download to the cache instead of the working directory.
     """
     path = Path(model).expanduser()
@@ -125,7 +125,7 @@ def resolve_model_path(model: str, models_dir: Path | None) -> str:
         models_dir.mkdir(parents=True, exist_ok=True)
         return str(models_dir / path.name)
     raise ModelLoadError(
-        f"model file not found: {model}. Pass a path to a .pt file or a stock name such as yolov8n.pt."
+        f"model file not found: {model}. Pass a path to a .pt file or a stock name such as yolo26n.pt."
     )
 
 
@@ -133,7 +133,7 @@ class PersonDetector:
     """Detect and track people frame by frame.
 
     Args:
-        model: weights path or stock name (``yolov8n.pt`` ... ``yolov8x.pt``).
+        model: weights path or stock name (``yolo26n.pt`` ... ``yolo26x.pt``, ``yolo11m.pt``, ``yolov8m.pt``...).
         device: ``auto``, ``cpu``, ``mps``, ``cuda:0``...
         tracker: ``bytetrack``, ``botsort`` or a tracker YAML path.
         iou: IoU threshold for non-maximum suppression.
@@ -143,7 +143,7 @@ class PersonDetector:
 
     def __init__(
         self,
-        model: str = "yolov8m.pt",
+        model: str = "yolo26m.pt",
         *,
         device: str = "auto",
         tracker: str = "bytetrack",

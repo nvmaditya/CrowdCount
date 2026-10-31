@@ -30,7 +30,7 @@ On Linux without a GPU, install CPU-only PyTorch first to skip the multi-GB CUDA
 | `make test` | Run the test suite (about 2 s; no model weights or GPU needed) |
 | `make lint` | `ruff check` + `ruff format --check`, as in CI |
 | `make format` | Auto-fix lint issues and format |
-| `make smoke` | Run the real detector headless on 60 demo frames (downloads yolov8n, ~6 MB) |
+| `make smoke` | Run the real detector headless on 60 demo frames (downloads yolo26n, ~6 MB) |
 
 ## Project layout
 

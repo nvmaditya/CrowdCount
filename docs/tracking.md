@@ -51,7 +51,8 @@ detections at or above it. That limits ByteTrack's second association to boxes b
 `--conf` and `track_high_thresh`.
 
 The obvious alternative is to give the tracker everything down to 0.1 and apply `--conf` only
-when counting. We measured that on the full demo video (795 frames, yolov8n and yolov8m). It
+when counting. We measured that on the full demo video (795 frames, yolov8n and yolov8m, before
+the default moved to YOLO26). It
 did not reduce ID switches: unique track counts were identical for yolov8m and slightly
 *higher* for yolov8n (25 vs 21 in one zone), with the same people counts. Low-score boxes
 started extra tracks that were later counted under new IDs. So the tracker keeps receiving
@@ -67,7 +68,8 @@ appearance re-identification (`with_reid`, off by default).
 
 CrowdCount 1.x used BoT-SORT under the "ByteTrack" name. 2.0 makes ByteTrack the default and
 names both honestly. Choose BoT-SORT for handheld, panning or vibrating cameras. On the fixed
-demo camera, ByteTrack was about 20% faster with the same counts (see the table below).
+demo camera ByteTrack was about 20% faster with the same counts (yolov8n on an M1 Pro GPU:
+58.0 vs 48.2 frames per second).
 
 ## Custom tracker settings
 
@@ -91,29 +93,59 @@ Applied after tracking, before counting:
 
 ## Choosing a model
 
+The default is **`yolo26m.pt`** (the demo uses `yolo26n.pt`). Any Ultralytics detection weights
+trained on COCO work with `--model`, downloaded by name on first use: `yolo26n/s/m/l/x.pt`,
+`yolo11n/s/m/l/x.pt`, `yolov8n/s/m/l/x.pt`, or a path to your own `.pt` file.
+
 Measured with `crowdcount detect --source demo --no-display --no-realtime --max-frames 300
---model <m> --device <d> --tracker <t> --conf 0.35 --min-area 800 --metrics-out ...` on the
-768×576 demo video, Apple M1 Pro (macOS 26.6), PyTorch 2.15, Ultralytics 8.4.194. "Processing
-FPS" is `mean_processing_fps` from `run_summary.json`: frames divided by the time spent in
-detection, tracking, zone counting, annotation and publishing. It excludes video decoding and
-the first (warm-up) frame. Your numbers will differ with hardware, resolution and crowd density.
+--model <m> --device <d> --tracker bytetrack --conf 0.35 --min-area 800 --metrics-out ...` on
+the 768×576 demo video, Apple M1 Pro (macOS 26.6), PyTorch 2.15, Ultralytics 8.4.194, all in one
+session. "FPS" is `mean_processing_fps` from `run_summary.json`: frames divided by the time
+spent in detection, tracking, zone counting, annotation and publishing, excluding video decoding
+and the first (warm-up) frame. COCO mAP50-95 is Ultralytics' published figure for each model
+([YOLO26](https://docs.ultralytics.com/models/yolo26/),
+[YOLO11](https://docs.ultralytics.com/models/yolo11/),
+[YOLOv8](https://docs.ultralytics.com/models/yolov8/)).
 
-| Model | Device | Tracker | Processing FPS | Mean people per frame |
-| --- | --- | --- | ---: | ---: |
-| yolov8n | MPS | ByteTrack | 58.0 | 5.79 |
-| yolov8n | MPS | BoT-SORT | 48.2 | 5.78 |
-| yolov8s | MPS | ByteTrack | 51.4 | 5.87 |
-| yolov8m | MPS | ByteTrack | 29.3 | 6.04 |
-| yolov8n | CPU | ByteTrack | 29.6 | 5.79 |
-| yolov8s | CPU | ByteTrack | 19.5 | 5.87 |
-| yolov8m | CPU | ByteTrack | 11.0 | 6.04 |
+| Model | COCO mAP50-95 | M1 Pro GPU (MPS) FPS | M1 Pro CPU FPS | Mean people per frame |
+| --- | ---: | ---: | ---: | ---: |
+| yolov8n | 37.3 | 62.0 | 29.7 | 5.79 |
+| yolo11n | 39.5 | 63.8 | 29.2 | 5.69 |
+| **yolo26n** | **40.9** | 65.0 | 27.8 | 5.69 |
+| yolov8s | 44.9 | 52.3 | 18.6 | 5.87 |
+| yolo11s | 47.0 | 51.3 | 18.1 | 5.94 |
+| **yolo26s** | **48.6** | 49.3 | 17.3 | 6.05 |
+| yolov8m | 50.2 | 30.0 | 10.8 | 6.04 |
+| yolo11m | 51.5 | 26.4 | 10.2 | 6.05 |
+| **yolo26m** | **53.1** | 26.4 | 10.3 | 6.11 |
 
-"Mean people per frame" shows that larger models detect slightly more of the small figures in
-this clip. It is **not** an accuracy measurement: this repository has no labelled ground truth,
-so there are no precision, recall or counting-error figures. Reproduce or extend the table with
-`--metrics-out` (see [configuration.md](configuration.md#metrics-output)).
+What this shows:
 
-<!-- TODO(maintainer): add a row for an NVIDIA GPU (e.g. --device cuda:0) if you have one. -->
+- **Accuracy:** YOLO26 scores 2.9-3.7 mAP points above YOLOv8 at the same size on Ultralytics'
+  COCO benchmark, with fewer parameters. That is why it is the default.
+- **Speed:** on this hardware, running in PyTorch, the families are within about 5% of each
+  other at the `n` and `s` sizes, and `yolov8m` is about 12% faster than `yolo26m` on the GPU.
+  Ultralytics' published speed gains for newer models are for exported models (ONNX on CPU,
+  TensorRT on NVIDIA); CrowdCount runs the PyTorch model directly.
+- **Mean people per frame** is within a few percent across families. It is **not** an accuracy
+  measurement: this repository has no labelled ground truth, so it has no precision, recall or
+  counting-error figures of its own.
+- **Need more speed?** Drop a size: `yolo26s` runs 1.7-1.9× as fast as `yolo26m` here, for 4.5
+  mAP points less.
+
+Notes:
+
+- YOLO26 also has an NMS-free mode, which Ultralytics' YOLO26 speed figures use. CrowdCount uses
+  YOLO26's default head (with NMS), as benchmarked above; how Ultralytics' trackers behave in
+  NMS-free mode is not documented.
+- Ultralytics recommends YOLO11 or YOLO26 over YOLO12 for production (slower CPU throughput and
+  higher memory use); YOLO12 weights still load if you want to try them.
+- All of these models are AGPL-3.0 licensed, like CrowdCount.
+
+Reproduce or extend the table with `--metrics-out` (see
+[configuration.md](configuration.md#metrics-output)).
+
+<!-- TODO(maintainer): add rows for an NVIDIA GPU (e.g. --device cuda:0) if you have one. -->
 
 ## Known limitations
 

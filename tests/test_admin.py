@@ -375,6 +375,33 @@ class TestAlertRules:
         warn_percent = (rule_options or {}).get("global", {}).get("warn_percent", 80)
         assert make_client().get("/api/summary").json()["rules"]["global"]["warn_percent"] == warn_percent
 
+    def test_invalid_stored_values_fall_back_to_defaults(self, make_client, tmp_path, caplog):
+        (tmp_path / "data").mkdir()
+        (tmp_path / "data" / "config.json").write_text(
+            json.dumps(
+                {
+                    "thresholds": {"global_threshold": 0, "zone_thresholds": {"Bad": 0, "Odd": 5, "Ok": 4}},
+                    "rule_options": {
+                        "global": {"warn_percent": 500, "enabled": "maybe", "banner": False},
+                        "zones": {"Odd": {"warn_percent": "x", "enabled": False}, "Ok": "nonsense"},
+                    },
+                }
+            )
+        )
+        rules = make_client().get("/api/summary").json()["rules"]
+        assert rules["global"] == {
+            "limit": 50,
+            "warn_percent": 80,
+            "warn_at": 40,
+            "enabled": True,
+            "banner": False,
+        }
+        assert rules["zones"] == {
+            "Odd": {"limit": 5, "warn_percent": 80, "warn_at": 4, "enabled": False, "banner": True},
+            "Ok": {"limit": 4, "warn_percent": 80, "warn_at": 4, "enabled": True, "banner": True},
+        }
+        assert "'Bad'" in caplog.text and "warn_percent" in caplog.text
+
     def test_disabled_rule_is_audited_and_persisted(self, make_client, tmp_path):
         client = make_client()
         headers = login(client)

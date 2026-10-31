@@ -6,14 +6,16 @@ Stored in ``<data_dir>/config.json`` (same format as CrowdCount 1.x).
 from __future__ import annotations
 
 import copy
+import logging
 from typing import Any
 
 from crowdcount.server.models import Camera, CameraCreate, CameraUpdate, RuleIn, utcnow
 from crowdcount.server.storage import JsonStore
-from crowdcount.state import DEFAULT_GLOBAL_THRESHOLD
+from crowdcount.state import DEFAULT_GLOBAL_THRESHOLD, DEFAULT_WARN_PERCENT
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_RETENTION_DAYS = 30
-_OPTION_KEYS = frozenset({"warn_percent", "enabled", "banner"})
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "cameras": [],
@@ -33,6 +35,37 @@ def _with_defaults(data: dict[str, Any]) -> dict[str, Any]:
             if isinstance(options.get(key), dict):
                 merged["rule_options"][key] = options[key]
     return merged
+
+
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _rule_dict(
+    scope: str, limit: Any, options: Any, fallback_limit: int | None = None
+) -> dict[str, Any] | None:
+    """One rule from stored values. Bad values (hand-edited files) fall back to defaults with a warning.
+
+    An invalid limit uses ``fallback_limit``; without one the rule is dropped (``None``).
+    """
+    if not _is_int(limit) or limit < 1:
+        logger.warning("Ignoring invalid alert limit %r for %s", limit, scope)
+        if fallback_limit is None:
+            return None
+        limit = fallback_limit
+    options = options if isinstance(options, dict) else {}
+    rule: dict[str, Any] = {"limit": limit}
+    for name, default, valid in (
+        ("warn_percent", DEFAULT_WARN_PERCENT, lambda v: _is_int(v) and 1 <= v <= 100),
+        ("enabled", True, lambda v: isinstance(v, bool)),
+        ("banner", True, lambda v: isinstance(v, bool)),
+    ):
+        value = options.get(name, default)
+        if not valid(value):
+            logger.warning("Ignoring invalid %s %r for %s; using %r", name, value, scope, default)
+            value = default
+        rule[name] = value
+    return rule
 
 
 class ConfigStore:
@@ -82,21 +115,23 @@ class ConfigStore:
     # ------------------------------------------------------------------ alert rules
 
     def rules(self) -> dict[str, Any]:
-        """The global rule and one rule per zone threshold, with defaults filled in."""
+        """The global rule and one rule per zone threshold, with defaults filled in.
+
+        Never raises on bad stored values: invalid options fall back to defaults, an invalid
+        global limit to ``DEFAULT_GLOBAL_THRESHOLD``, and a zone with an invalid limit has no rule.
+        """
         cfg = self.get()
         thresholds, options = cfg["thresholds"], cfg["rule_options"]
-
-        def build(limit: Any, opts: Any) -> dict[str, Any]:
-            extra = {k: v for k, v in (opts if isinstance(opts, dict) else {}).items() if k in _OPTION_KEYS}
-            return {"limit": int(limit), **RuleIn(limit=1, **extra).model_dump(exclude={"limit"})}
-
-        return {
-            "global": build(thresholds["global_threshold"], options["global"]),
-            "zones": {
-                name: build(limit, options["zones"].get(name))
-                for name, limit in thresholds["zone_thresholds"].items()
-            },
-        }
+        zone_options = options["zones"]
+        zones = {}
+        for name, limit in thresholds["zone_thresholds"].items():
+            rule = _rule_dict(f"zone '{name}'", limit, zone_options.get(name))
+            if rule is not None:
+                zones[name] = rule
+        glob = _rule_dict(
+            "Total occupancy", thresholds["global_threshold"], options["global"], DEFAULT_GLOBAL_THRESHOLD
+        )
+        return {"global": glob, "zones": zones}
 
     def set_global_rule(self, rule: RuleIn) -> None:
         def change(cfg: dict[str, Any]) -> None:

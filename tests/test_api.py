@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 
 import numpy as np
+import pytest
 
 from conftest import login
 from crowdcount import __version__
@@ -31,6 +32,17 @@ def test_legacy_static_urls_redirect(client):
     resp = client.get("/static/index.html", follow_redirects=False)
     assert resp.status_code == 301
     assert resp.headers["location"] == "/index.html"
+
+
+def test_old_admin_page_redirects_to_settings(client):
+    resp = client.get("/admin.html", follow_redirects=False)
+    assert resp.status_code == 301
+    assert resp.headers["location"] == "/settings.html"
+
+
+@pytest.mark.parametrize("page", ["/", "/alerts.html", "/zones.html", "/settings.html", "/login.html"])
+def test_every_page_is_served(client, page):
+    assert "<title>" in client.get(page).text
 
 
 def test_counts_and_zones(client):

@@ -1,6 +1,6 @@
 /* Shared helpers for the CrowdCount UI: session, API calls, safe DOM building, render helpers, feedback, controls
  * (switch, menu, confirm dialog), theme, formatting, alert scopes.
- * Needs icons.js. Replaces common.js on the new pages (the two are never loaded together). */
+ * Needs icons.js. */
 "use strict";
 
 const CC = (() => {

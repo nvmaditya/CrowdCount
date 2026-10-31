@@ -1,6 +1,5 @@
 // Runs before first paint so the page never flashes the wrong theme.
-// Uses the stored choice, otherwise the OS preference. Sets the `.dark` class (new pages)
-// and `data-bs-theme` (pages still on Bootstrap).
+// Uses the stored choice, otherwise the OS preference, and sets the `.dark` class on <html>.
 (function () {
     "use strict";
     var theme = null;
@@ -13,5 +12,4 @@
     var root = document.documentElement;
     if (theme === "dark") root.classList.add("dark");
     else root.classList.remove("dark");
-    root.setAttribute("data-bs-theme", theme);
 })();

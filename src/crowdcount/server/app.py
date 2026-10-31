@@ -110,5 +110,10 @@ def create_app(
         """CrowdCount 1.x served the UI under /static/; keep old bookmarks working."""
         return RedirectResponse(url=f"/{path}", status_code=301)
 
+    @app.get("/admin.html", include_in_schema=False)
+    def old_admin_page() -> RedirectResponse:
+        """The 1.x admin panel; its sections now live on the Settings, Alerts and Zones pages."""
+        return RedirectResponse(url="/settings.html", status_code=301)
+
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
     return app

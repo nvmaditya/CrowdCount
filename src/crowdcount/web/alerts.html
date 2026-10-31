@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CrowdCount · Alerts</title>
+        <meta name="description" content="Alert rules, early warnings and alert history" />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <script src="assets/js/theme-init.js"></script>
+        <link rel="stylesheet" href="assets/css/tokens.css" />
+        <link rel="stylesheet" href="assets/css/kit.css" />
+        <link rel="stylesheet" href="assets/css/app.css" />
+    </head>
+    <body>
+        <div class="app">
+            <aside id="sidebar" class="sidebar"></aside>
+
+            <main class="main">
+                <header id="header" class="page-header"></header>
+
+                <div class="page alerts-page">
+                    <section class="section" aria-labelledby="risk-h">
+                        <div class="section-head">
+                            <h2 class="section-title" id="risk-h">Risk right now</h2>
+                            <span class="section-sub">Each scope against its limit. The marker shows where its early warning starts.</span>
+                        </div>
+                        <div class="risk-grid" id="risk-grid"></div>
+                    </section>
+
+                    <section class="chart-card card-flush" aria-labelledby="active-h">
+                        <div class="card-head">
+                            <h2 class="chart-title" id="active-h">Active now</h2>
+                            <span class="ui-badge b-secondary" id="active-count">0</span>
+                            <span class="card-meta">These clear on their own when counts drop back.</span>
+                        </div>
+                        <div id="active-list"></div>
+                    </section>
+
+                    <div class="row-2 is-top">
+                        <section class="chart-card card-flush" aria-labelledby="rules-h">
+                            <div class="card-head">
+                                <h2 class="chart-title" id="rules-h">Alert rules</h2>
+                                <span class="card-meta">Applied to the live detector as soon as you save</span>
+                            </div>
+                            <div class="table-scroll">
+                                <table class="dt-table rules-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Scope</th>
+                                            <th>Alert when</th>
+                                            <th>Early warning</th>
+                                            <th class="col-on">On</th>
+                                            <th class="col-actions"><span class="sr-only">Actions</span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="rules-body"></tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        <section class="chart-card card-flush" id="editor" aria-labelledby="edit-h"></section>
+                    </div>
+
+                    <section class="section" aria-labelledby="hist-h">
+                        <div class="dt-bar">
+                            <div class="section-head">
+                                <h2 class="section-title" id="hist-h">History</h2>
+                                <div class="dt-tabs hist-tabs" id="history-tabs" role="tablist" aria-label="Filter history"></div>
+                            </div>
+                            <div class="dt-bar-actions">
+                                <button type="button" class="ui-btn v-outline s-sm" id="history-export"></button>
+                            </div>
+                        </div>
+                        <div class="dt-table-scroll" id="history-panel" role="tabpanel">
+                            <table class="dt-table history-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-time">Time</th>
+                                        <th>Scope</th>
+                                        <th class="col-level">Level</th>
+                                        <th class="col-count">Count / limit</th>
+                                        <th class="col-review">Review</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="dt-footer">
+                            <span id="history-note"></span>
+                        </div>
+                    </section>
+
+                    <footer class="page-foot">
+                        <span id="footer-version">CrowdCount · AGPL-3.0</span>
+                        <span class="page-foot-links">
+                            <a href="https://github.com/nvmaditya/CrowdCount">Source code</a>
+                            <a href="https://github.com/nvmaditya/CrowdCount/tree/main/docs">Documentation</a>
+                        </span>
+                    </footer>
+                </div>
+            </main>
+        </div>
+
+        <script src="assets/js/icons.js"></script>
+        <script src="assets/js/core.js"></script>
+        <script src="assets/js/shell.js"></script>
+        <script src="assets/js/alerts.js"></script>
+    </body>
+</html>

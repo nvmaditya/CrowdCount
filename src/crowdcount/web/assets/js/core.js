@@ -1,4 +1,5 @@
-/* Shared helpers for the CrowdCount UI: session, API calls, safe DOM building, feedback, theme, formatting, alert scopes.
+/* Shared helpers for the CrowdCount UI: session, API calls, safe DOM building, feedback, controls (switch, menu,
+ * confirm dialog), theme, formatting, alert scopes.
  * Needs icons.js. Replaces common.js on the new pages (the two are never loaded together). */
 "use strict";
 
@@ -191,6 +192,155 @@ const CC = (() => {
         return node;
     }
 
+    // ------------------------------------------------------------ controls
+
+    /**
+     * An on/off switch (<button role="switch">). A click flips it and calls onchange(checked, button).
+     * When onchange returns a promise, further clicks are ignored until it settles (the button stays
+     * focusable), and the switch flips back if it rejects or resolves to false.
+     */
+    function switchControl({ checked, label, disabled = false, onchange }) {
+        const button = el("button", {
+            type: "button", class: "switch", role: "switch",
+            "aria-checked": String(Boolean(checked)), "aria-label": label, disabled,
+        }, el("span", { class: "switch-thumb" }));
+        let busy = false;
+        button.addEventListener("click", async () => {
+            if (busy) return;
+            const next = button.getAttribute("aria-checked") !== "true";
+            button.setAttribute("aria-checked", String(next));
+            if (!onchange) return;
+            busy = true;
+            button.setAttribute("aria-busy", "true");
+            let ok;
+            try {
+                ok = (await onchange(next, button)) !== false;
+            } catch (e) {
+                ok = false;
+            }
+            busy = false;
+            button.removeAttribute("aria-busy");
+            if (!ok) button.setAttribute("aria-checked", String(!next));
+        });
+        return button;
+    }
+
+    /**
+     * A row-actions menu: a dt-row-btn trigger (ellipsis-vertical, aria-label `label`) and a popover
+     * list of `items` ({label, icon, danger, disabled, onselect}). It closes on a selection, an
+     * outside click, scrolling and Escape; Escape and a selection return focus to the trigger.
+     */
+    function menu(label, items) {
+        const trigger = el("button", {
+            type: "button", class: "dt-row-btn", "aria-label": label, title: label,
+            "aria-haspopup": "menu", "aria-expanded": "false",
+        }, icon("ellipsis-vertical"));
+        const list = el("div", { class: "menu-list", role: "menu", "aria-label": label, hidden: true });
+        const wrap = el("div", { class: "menu" }, trigger, list);
+        const enabled = () => $$(".menu-item:not(:disabled)", list);
+
+        for (const item of items) {
+            list.append(el("button", {
+                type: "button", role: "menuitem", tabindex: "-1", disabled: Boolean(item.disabled),
+                class: item.danger ? "menu-item is-danger" : "menu-item",
+                onclick: () => {
+                    close(true);
+                    if (item.onselect) item.onselect();
+                },
+            }, item.icon ? icon(item.icon) : null, el("span", {}, item.label)));
+        }
+
+        function onOutside(event) {
+            if (!wrap.contains(event.target)) close(false);
+        }
+        function onKey(event) {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                close(true);
+            }
+        }
+        function onScroll() {
+            close(false);
+        }
+
+        function open() {
+            list.hidden = false;
+            // Fixed, so the list is never clipped by a scrolling table or a card's overflow.
+            const r = trigger.getBoundingClientRect();
+            const left = Math.max(8, Math.min(r.right - list.offsetWidth, window.innerWidth - list.offsetWidth - 8));
+            const below = r.bottom + 4;
+            const top = below + list.offsetHeight > window.innerHeight - 8 && r.top - list.offsetHeight - 4 >= 8
+                ? r.top - list.offsetHeight - 4
+                : below;
+            list.style.left = `${left}px`;
+            list.style.top = `${top}px`;
+            trigger.setAttribute("aria-expanded", "true");
+            document.addEventListener("pointerdown", onOutside, true);
+            document.addEventListener("keydown", onKey, true);
+            window.addEventListener("scroll", onScroll, true);
+            window.addEventListener("resize", onScroll);
+            enabled()[0]?.focus({ preventScroll: true });
+        }
+
+        function close(refocus) {
+            if (list.hidden) return;
+            list.hidden = true;
+            trigger.setAttribute("aria-expanded", "false");
+            document.removeEventListener("pointerdown", onOutside, true);
+            document.removeEventListener("keydown", onKey, true);
+            window.removeEventListener("scroll", onScroll, true);
+            window.removeEventListener("resize", onScroll);
+            if (refocus) trigger.focus();
+        }
+
+        trigger.addEventListener("click", () => (list.hidden ? open() : close(false)));
+        list.addEventListener("keydown", (event) => {
+            const buttons = enabled();
+            const at = buttons.indexOf(document.activeElement);
+            const moves = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: buttons.length - 1 };
+            if (!(event.key in moves) || !buttons.length) return;
+            event.preventDefault();
+            buttons[(moves[event.key] + buttons.length) % buttons.length].focus();
+        });
+        // Tabbing out of the open list closes it.
+        wrap.addEventListener("focusout", (event) => {
+            if (!wrap.contains(event.relatedTarget)) close(false);
+        });
+        return wrap;
+    }
+
+    let confirmSeq = 0;
+
+    /** Ask before a destructive action. Resolves true on confirm, false on Cancel, Escape or a backdrop click. */
+    function confirm(message, { confirmLabel = "Delete", danger = true } = {}) {
+        return new Promise((resolve) => {
+            const id = `confirm-msg-${++confirmSeq}`;
+            const cancel = el("button", {
+                type: "button", class: "ui-btn v-outline s-default", onclick: () => dialog.close("cancel"),
+            }, "Cancel");
+            const ok = el("button", {
+                type: "button", class: `ui-btn ${danger ? "v-destructive" : "v-default"} s-default`,
+                onclick: () => dialog.close("confirm"),
+            }, confirmLabel);
+            const dialog = el("dialog", { class: "confirm", role: "alertdialog", "aria-labelledby": id },
+                el("div", { class: "confirm-body" },
+                    el("p", { class: "confirm-message", id }, message),
+                    el("div", { class: "confirm-actions" }, cancel, ok)));
+            // Escape fires "cancel" and then "close" with an empty returnValue.
+            dialog.addEventListener("close", () => {
+                dialog.remove();
+                resolve(dialog.returnValue === "confirm");
+            });
+            // The dialog element itself is only hit outside .confirm-body, i.e. on the backdrop.
+            dialog.addEventListener("click", (event) => {
+                if (event.target === dialog) dialog.close("cancel");
+            });
+            document.body.append(dialog);
+            dialog.showModal();
+            cancel.focus();
+        });
+    }
+
     // ------------------------------------------------------------ theme
 
     const theme = () => (document.documentElement.classList.contains("dark") ? "dark" : "light");
@@ -328,6 +478,7 @@ const CC = (() => {
         api, ApiError, download,
         el, $, $$, icon, logo, emptyState,
         toast,
+        switchControl, menu, confirm,
         theme, setTheme,
         fmtTime, fmtClock, fmtDateTime, fmtStamp,
         rgb, plural, tokenRgb,

@@ -40,7 +40,7 @@ class ZoneEditor {
             this.host.replaceChildren(CC.el("div", {},
                 CC.emptyState("camera-video-off", "No camera frame yet",
                     "Zones are drawn on the live image. Start the detector, then reload: "),
-                CC.el("div", { class: "text-center" }, CC.el("span", { class: "cc-code" }, "crowdcount run --source 0"))));
+                CC.el("div", { class: "text-center" }, CC.el("span", { class: "cc-code" }, "crowdcount run --source <video or stream URL>"))));
             return false;
         }
         const url = URL.createObjectURL(await resp.blob());

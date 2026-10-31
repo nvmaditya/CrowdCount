@@ -31,7 +31,7 @@ prints the version. Run any command with `--help` for its flags.
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--source` | `0` | Camera index, video file, or stream URL (`rtsp://`, `http://`...). Not on `demo`. |
+| `--source` | (required) | Video file or stream URL (`rtsp://`, `http://`...). Not on `demo`. |
 | `--camera NAME` | | (`run` only) Use a source saved in the admin panel's Cameras page. |
 | `--model` | `yolov8m.pt` | YOLO weights: a stock name (downloaded on first use to the cache dir) or a `.pt` path. |
 | `--device` | `auto` | `auto` picks `cuda:0`, then `mps` (Apple silicon), then `cpu`. |

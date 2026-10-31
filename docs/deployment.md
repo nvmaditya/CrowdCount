@@ -24,7 +24,6 @@ docker run -d --name crowdcount -p 8080:8080 \
 - `/data` holds users, settings, logs and `zones.json`; `/cache` holds the model weights and
   demo video. Mount both to keep them across container restarts.
 - The image has a `HEALTHCHECK` on `/api/health`. `docker stop` shuts down cleanly (exit 0).
-- Linux webcams: add `--device /dev/video0` and use `--source 0`.
 - Inside the container the server must listen on `0.0.0.0` (the image's default command does).
 
 ### Compose

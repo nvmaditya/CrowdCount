@@ -1,10 +1,9 @@
-"""Video input: webcams, video files and network streams, with readable errors."""
+"""Video input: video files and network streams, with readable errors."""
 
 from __future__ import annotations
 
 import logging
 import math
-import sys
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -21,25 +20,13 @@ class VideoSourceError(RuntimeError):
     """Raised when a video source cannot be opened."""
 
 
-def parse_source(value: str | int) -> int | str:
-    """Turn ``"0"`` into camera index ``0``; leave paths and URLs alone."""
-    if isinstance(value, int):
-        return value
-    text = str(value).strip()
-    return int(text) if text.isdigit() else text
-
-
-def is_stream(source: int | str) -> bool:
-    """True for cameras and network streams (sources that never reach a real end)."""
-    if isinstance(source, int):
-        return True
+def is_stream(source: str) -> bool:
+    """True for network streams (sources that never reach a real end)."""
     return urlparse(source).scheme.lower() in _STREAM_SCHEMES
 
 
-def describe_source(source: int | str) -> str:
+def describe_source(source: str) -> str:
     """Short human-readable label for logs and the dashboard."""
-    if isinstance(source, int):
-        return f"camera {source}"
     parsed = urlparse(source)
     if parsed.scheme.lower() in _STREAM_SCHEMES:
         host = parsed.hostname or ""
@@ -51,13 +38,15 @@ class VideoSource:
     """A frame reader that can loop files and reconnect dropped streams.
 
     Args:
-        source: camera index, file path or stream URL.
+        source: video file path or stream URL (``rtsp://``, ``http://``, ...).
         loop: restart files from the beginning at the end.
         reconnect_attempts: retries before giving up on a dropped stream.
     """
 
-    def __init__(self, source: int | str, *, loop: bool = False, reconnect_attempts: int = 5) -> None:
-        self.source = parse_source(source)
+    def __init__(self, source: str, *, loop: bool = False, reconnect_attempts: int = 5) -> None:
+        self.source = str(source).strip()
+        if not self.source:
+            raise VideoSourceError("no video source given: pass a video file or stream URL")
         self.loop = loop
         self.reconnect_attempts = reconnect_attempts
         self.label = describe_source(self.source)
@@ -76,7 +65,7 @@ class VideoSource:
 
     def open(self) -> VideoSource:
         """Open the source, raising :class:`VideoSourceError` with a hint on failure."""
-        if isinstance(self.source, str) and not self.live and not Path(self.source).exists():
+        if not self.live and not Path(self.source).is_file():
             raise VideoSourceError(f"video file not found: {self.source}")
         self._cap = cv2.VideoCapture(self.source)
         if not self._cap.isOpened():
@@ -94,14 +83,6 @@ class VideoSource:
         return self
 
     def _open_error(self) -> str:
-        if isinstance(self.source, int):
-            hint = (
-                " On macOS, allow camera access for your terminal in System Settings > "
-                "Privacy & Security > Camera."
-                if sys.platform == "darwin"
-                else ""
-            )
-            return f"could not open camera {self.source}. Check that it is connected and not in use.{hint}"
         if self.live:
             return f"could not connect to stream {self.label}. Check the URL, credentials and network."
         return f"OpenCV could not decode {self.source}. Is it a supported video format?"

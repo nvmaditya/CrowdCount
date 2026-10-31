@@ -129,9 +129,7 @@ class TokenData(BaseModel):
 
 class CameraCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    source_url: str = Field(
-        min_length=1, max_length=500, description="Camera index, file path, or stream URL"
-    )
+    source_url: str = Field(min_length=1, max_length=500, description="Video file path or stream URL")
     enabled: bool = True
 
 

@@ -31,6 +31,7 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
 - **API moved under `/api`.** `/` serves the dashboard. `POST /alerts/threshold` is removed; use
   `PUT /api/admin/config/thresholds`. `/api/heatmap` returns JPEG. See [API changes](docs/api.md#changes-from-1x).
 - **Default bind address is `127.0.0.1`** (was `0.0.0.0`). Pass `--host 0.0.0.0` to expose it.
+- **`--source` has no default.** Pass a video file or stream URL (or use `crowdcount demo`).
 - **`--speed` is replaced by `--stride`** (integer frame stride, which is what `--speed` did).
 - **Zone `color` is RGB**, as documented; 1.x passed it to OpenCV as BGR.
 - **No `admin`/`admin123` account.** The first admin uses `CROWDCOUNT_ADMIN_PASSWORD` or a
@@ -78,7 +79,7 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
 - Admin log CSV/PDF export always returned 401 (`window.open` can't send the bearer token).
 - Admin zone edits wrote a hard-wired repo-root file that the running detector never re-read.
 - Saved cameras and log retention were stored but never used.
-- A bad video source or camera exited with status 0; a missing model printed a traceback;
+- A bad video source exited with status 0; a missing model printed a traceback;
   a malformed `zones.json` crashed with a raw `JSONDecodeError`.
 - `--detector-only` ignored `--port`, and the detector burned "Dashboard: http://localhost:8000"
   into every frame (the server ran on 8080).

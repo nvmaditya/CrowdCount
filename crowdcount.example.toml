@@ -3,8 +3,8 @@
 # Command-line flags override this file. Relative paths are resolved against this file.
 
 [video]
-# Camera index (0, 1, ...), video file path, or stream URL (rtsp://, http://).
-source = "0"
+# Video file path or stream URL (rtsp://, http://). There is no default: set it here or pass --source.
+# source = "rtsp://user:pass@192.168.1.20/stream1"
 # Restart video files when they end.
 loop = false
 # Process every Nth frame. 2 halves the work at the cost of temporal resolution.

@@ -123,7 +123,7 @@
         };
         const [ic, title, hint] = views[status.state] || ["camera-video-off", "No detector running",
             "Start one alongside this dashboard:"];
-        const code = views[status.state] ? null : el("div", { class: "mt-2" }, el("span", { class: "cc-code" }, "crowdcount run --source 0"));
+        const code = views[status.state] ? null : el("div", { class: "mt-2" }, el("span", { class: "cc-code" }, "crowdcount run --source <video or stream URL>"));
         const key = `${status.state}`;
         if (box.dataset.view !== key) {
             box.dataset.view = key;

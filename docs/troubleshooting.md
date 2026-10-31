@@ -5,13 +5,10 @@ line; `-v` adds the traceback.
 
 ## Starting up
 
-**`could not open camera 0. Check that it is connected and not in use.`**
-- Another app (video call, browser tab) may hold the camera. Close it.
-- macOS: allow camera access for your terminal app in *System Settings → Privacy & Security →
-  Camera*, then restart the terminal.
-- Try another index: `--source 1`.
-- Linux: check `ls /dev/video*` and that your user is in the `video` group. In Docker, pass
-  `--device /dev/video0`.
+**`no video source: pass --source with a video file or stream URL …`**
+There is no default source. Pass `--source path/to/video.mp4` or `--source rtsp://…`, set
+`[video] source` in `crowdcount.toml`, use a saved source with `--camera NAME`, or try
+`crowdcount demo`.
 
 **`video file not found: …` / `OpenCV could not decode …`**
 Check the path. For formats OpenCV can't read, convert first:

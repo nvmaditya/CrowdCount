@@ -31,8 +31,8 @@ Tools: Kap, or macOS screen recording (Shift+Cmd+5) converted with gifski.
 
 Knowing how many people are in a space, and where, matters for safety limits, queues,
 staffing and space planning. Commercial people counters are closed boxes; research code stops
-at a notebook. CrowdCount sits in between: point it at a webcam, a video file or an RTSP
-camera, draw the areas you care about, and get live occupancy, alerts and exports in a browser.
+at a notebook. CrowdCount sits in between: point it at an RTSP camera or a video
+file, draw the areas you care about, and get live occupancy, alerts and exports in a browser.
 It is fully local, open source, and built to be read and extended.
 
 ## Features
@@ -51,7 +51,7 @@ It is fully local, open source, and built to be read and extended.
   log of every sign-in and change, exportable as CSV or PDF.
 - **Exports.** Per-second history as CSV, a PDF occupancy report, and per-frame metrics
   (timing, confidences, zone time series, track lifetimes) for analysis.
-- **Runs anywhere.** Webcams, files, and RTSP/HTTP streams with reconnects. CPU, Apple silicon
+- **Runs anywhere.** RTSP/HTTP streams (with reconnects) and video files. CPU, Apple silicon
   (MPS) or NVIDIA (CUDA), chosen automatically. Docker image included.
 - **Built to last.** One CLI, layered config (`crowdcount.toml`, env, flags), readable errors
   with exit codes, 175 tests, and CI on Python 3.10 to 3.14.
@@ -85,9 +85,6 @@ in to draw zones and set thresholds.
 ## Usage
 
 ```bash
-# Your webcam
-crowdcount run --source 0
-
 # A video file, looping, with zones from a file
 crowdcount run --source lobby.mp4 --loop --zones lobby-zones.json
 
@@ -115,7 +112,7 @@ Every command takes `--help`. A Dockerfile and compose file are included; see th
 
 ```mermaid
 flowchart LR
-    cam["Camera · file · RTSP"] --> det["YOLOv8<br/>person detection"]
+    cam["RTSP camera · video file"] --> det["YOLOv8<br/>person detection"]
     det --> trk["ByteTrack<br/>track IDs"]
     trk --> zon["Zones<br/>occupancy · unique tracks"]
     zon --> st[("Live state<br/>counts · 1 Hz history<br/>heatmap · alerts")]

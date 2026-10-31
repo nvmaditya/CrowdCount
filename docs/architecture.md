@@ -10,7 +10,7 @@ between them, so `crowdcount run` is the only way to get live data on the dashbo
 flowchart LR
     subgraph process["crowdcount run (one process)"]
         direction LR
-        src["VideoSource<br/>camera · file · RTSP/HTTP"] --> pipe
+        src["VideoSource<br/>RTSP/HTTP stream · video file"] --> pipe
         subgraph pipe["Pipeline (main thread)"]
             direction TB
             det["PersonDetector<br/>YOLOv8 + ByteTrack"] --> filt["Box filters<br/>confidence · area · aspect"]
@@ -34,7 +34,7 @@ flowchart LR
 | --- | --- |
 | `crowdcount.cli` | The `crowdcount` command. Validates zones, opens the source, starts the server, loads the model, runs the pipeline, maps errors to exit codes. |
 | `crowdcount.config` | `Settings`: defaults, `crowdcount.toml`, environment, CLI flags, in that order. Also the `.env` loader and cache directory. |
-| `crowdcount.video` | `VideoSource`: opens cameras, files and streams with readable errors; loops files; reconnects streams. |
+| `crowdcount.video` | `VideoSource`: opens video files and streams with readable errors; loops files; reconnects streams. |
 | `crowdcount.detector` | `PersonDetector`: Ultralytics YOLO tracking restricted to the person class, plus `DetectionFilter`. Ultralytics is imported lazily. |
 | `crowdcount.zones` | Zone model, validation, atomic save, point-in-polygon, `ZoneTracker` (occupancy + unique track IDs). No OpenCV or torch. |
 | `crowdcount.pipeline` | The frame loop: stride, pacing, zone hot-reload, trails, annotation, publishing, recording, metrics, preview window. |

@@ -76,7 +76,7 @@ Copy an Ultralytics tracker YAML, edit it, and pass its path:
 ```bash
 cp "$(python -c 'import ultralytics, pathlib; print(pathlib.Path(ultralytics.__file__).parent / "cfg/trackers/bytetrack.yaml")')" my-tracker.yaml
 # e.g. raise track_buffer to 60 to keep IDs through longer occlusions
-crowdcount run --source 0 --tracker my-tracker.yaml
+crowdcount run --source lobby.mp4 --tracker my-tracker.yaml
 ```
 
 ## CrowdCount's box filters

@@ -1,6 +1,6 @@
 """Interactive OpenCV zone editor (``crowdcount zones edit``).
 
-Draw polygons on frames from a camera or video. Changes are saved to the zones file,
+Draw polygons on frames from a video file or stream. Changes are saved to the zones file,
 which a running detector picks up automatically. The admin panel offers the same in a
 browser.
 """
@@ -163,7 +163,7 @@ def run_editor(source: VideoSource, zones_file: Path) -> None:
     frame = source.read()
     try:
         while frame is not None:
-            # Cameras and streams stay live; files show their first frame as a still backdrop.
+            # Streams stay live; files show their first frame as a still backdrop.
             if source.live and (latest := source.read()) is not None:
                 frame = latest
             cv2.imshow(WINDOW_TITLE, editor.render(frame))

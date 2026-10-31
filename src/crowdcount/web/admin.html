@@ -155,7 +155,7 @@
                         <div id="camera-list"></div>
                     </div>
                     <p class="cc-muted cc-small mt-3 mb-0">
-                        A camera is a named video source: a webcam index, a file path, or a stream URL. Start the detector on one with
+                        A camera is a named video source: a stream URL or a video file path. Start the detector on one with
                         <span class="cc-code">crowdcount run --camera "Name"</span>. One detector process watches one source.
                     </p>
                 </section>
@@ -304,8 +304,8 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label cc-small fw-semibold" for="camera-source">Source</label>
-                            <input class="form-control" id="camera-source" placeholder="0, /videos/lobby.mp4 or rtsp://…" required />
-                            <div class="form-text">Webcam index, video file path, or RTSP/HTTP stream URL.</div>
+                            <input class="form-control" id="camera-source" placeholder="rtsp://… or /videos/lobby.mp4" required />
+                            <div class="form-text">RTSP/HTTP stream URL or video file path.</div>
                         </div>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="camera-enabled" checked />

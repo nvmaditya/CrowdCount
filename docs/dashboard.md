@@ -62,7 +62,7 @@ closed. Tokens expire after 24 hours.
 | Overview | Counts of zones, cameras, users and unacknowledged alerts; detector status; recent activity. |
 | Zones | Draw zones on the live frame; enable, disable or delete them. Changes reach the running detector within a second. See [zones.md](zones.md). |
 | Thresholds | Set the total threshold and per-zone thresholds; clear a zone's threshold. Applied immediately and persisted. |
-| Cameras | Save named sources (webcam index, file or stream URL). Start one with `crowdcount run --camera "Name"`; the page copies the command for you. One detector process watches one source. |
+| Cameras | Save named sources (stream URL or video file). Start one with `crowdcount run --camera "Name"`; the page copies the command for you. One detector process watches one source. |
 | Users | Create admins or users; delete accounts. You can't delete yourself or the last admin. |
 | Activity log | Filter by category and date, page through, export CSV or PDF. |
 | Alert history | Every threshold breach, with acknowledgement. |

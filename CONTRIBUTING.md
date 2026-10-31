@@ -38,7 +38,7 @@ On Linux without a GPU, install CPU-only PyTorch first to skip the multi-GB CUDA
 src/crowdcount/
   cli.py          the `crowdcount` command
   config.py       Settings, crowdcount.toml, .env
-  video.py        VideoSource (cameras, files, streams)
+  video.py        VideoSource (video files and streams)
   detector.py     PersonDetector (YOLO + tracker), box filters
   zones.py        zone model, validation, point-in-polygon, ZoneTracker  ← pure Python
   pipeline.py     the frame loop
@@ -91,7 +91,7 @@ Open an issue with:
 
 - the command you ran and its output with `-v`
 - `crowdcount --version`, your OS, Python version and device (`cpu`, `mps`, `cuda`)
-- the source type (webcam, file, RTSP) and resolution, if relevant
+- the source type (file or stream) and resolution, if relevant
 
 ## Releasing
 

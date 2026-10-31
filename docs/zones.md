@@ -20,7 +20,7 @@ There is no restart.
    running detector, because the editor draws on its latest frame.
 2. **OpenCV editor.**
    ```bash
-   crowdcount zones edit --source path/to/video.mp4     # or --source 0 for a webcam
+   crowdcount zones edit --source path/to/video.mp4     # or an rtsp:// stream URL
    ```
    | Input | Action |
    | --- | --- |
@@ -33,7 +33,7 @@ There is no restart.
    | `l` | List zones |
    | `q` / Esc | Quit (offers to save unsaved changes) |
 
-   Video files show their first frame as a still; cameras and streams stay live.
+   Video files show their first frame as a still; streams stay live.
 3. **By hand.** Edit the JSON, then check it:
    ```bash
    crowdcount zones validate --source path/to/video.mp4

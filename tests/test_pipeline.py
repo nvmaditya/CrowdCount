@@ -8,7 +8,7 @@ import pytest
 from crowdcount.detector import Detection
 from crowdcount.pipeline import Pipeline, PipelineOptions, _ZoneFileWatcher
 from crowdcount.state import SharedState
-from crowdcount.video import VideoSource, VideoSourceError, describe_source, is_stream, parse_source
+from crowdcount.video import VideoSource, VideoSourceError, describe_source, is_stream
 from crowdcount.zones import Zone, save_zones
 
 
@@ -151,8 +151,18 @@ class TestVideoSource:
             assert src.fps == pytest.approx(10)
 
     def test_source_helpers(self):
-        assert parse_source("0") == 0
-        assert parse_source("clip.mp4") == "clip.mp4"
-        assert is_stream(0) and is_stream("rtsp://cam/stream") and not is_stream("clip.mp4")
+        assert is_stream("rtsp://cam/stream") and is_stream("https://cam/video.mjpg")
+        assert not is_stream("clip.mp4")
         assert describe_source("rtsp://user:secret@10.0.0.5:554/live") == "rtsp://10.0.0.5/live"
-        assert describe_source(2) == "camera 2"
+        assert describe_source("/videos/lobby.mp4") == "lobby.mp4"
+
+    @pytest.mark.parametrize("source", ["", "   "])
+    def test_empty_source(self, source):
+        with pytest.raises(VideoSourceError, match="no video source"):
+            VideoSource(source)
+
+    def test_only_regular_files_are_opened(self, tmp_path):
+        # Device nodes and directories are not video files (OpenCV would open /dev/video* as a device).
+        for source in ("0", str(tmp_path)):
+            with pytest.raises(VideoSourceError, match="video file not found"):
+                VideoSource(source).open()

@@ -220,7 +220,9 @@ class TestCameras:
         ).json()
         assert (
             client.post(
-                "/api/admin/cameras", headers=admin_headers, json={"name": "lobby", "source_url": "0"}
+                "/api/admin/cameras",
+                headers=admin_headers,
+                json={"name": "lobby", "source_url": "/videos/lobby.mp4"},
             ).status_code
             == 409
         )

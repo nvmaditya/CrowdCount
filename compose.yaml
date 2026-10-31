@@ -15,9 +15,6 @@ services:
       - crowdcount-data:/data
       - crowdcount-cache:/cache
     restart: unless-stopped
-    # Linux webcam: uncomment and use --source 0
-    # devices:
-    #   - /dev/video0:/dev/video0
 
 volumes:
   crowdcount-data:

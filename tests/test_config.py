@@ -21,7 +21,7 @@ def test_file_values_and_relative_paths(tmp_path):
         tmp_path,
         """
 [video]
-source = 1
+source = "rtsp://cam/stream"
 loop = true
 
 [detection]
@@ -37,7 +37,7 @@ port = 9000
 """,
     )
     s = load_settings(cfg, env={})
-    assert s.source == "1"
+    assert s.source == "rtsp://cam/stream"
     assert s.loop is True
     assert s.model == "yolov8n.pt"
     assert s.confidence == pytest.approx(0.4)
@@ -77,6 +77,7 @@ def test_picks_up_crowdcount_toml_in_cwd(tmp_path, monkeypatch):
         ("[detection]\nconfidnce = 0.3\n", "unknown setting 'detection.confidnce'"),
         ("[server]\nport = 'eighty'\n", "port must be an integer"),
         ("[video]\nloop = 'yes'\n", "loop must be true or false"),
+        ("[video]\nsource = 1\n", "source must be a string"),
         ("port = 8080\n", "must be a \\[section\\]"),
         ("[server\n", "crowdcount.toml"),
     ],

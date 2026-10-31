@@ -43,7 +43,7 @@ class PortInUseError(RuntimeError):
 def _add_video_args(p: argparse.ArgumentParser, *, source: bool = True) -> None:
     g = p.add_argument_group("video")
     if source:
-        g.add_argument("--source", help="camera index (0), video file, or stream URL (rtsp://, http://)")
+        g.add_argument("--source", help="video file or stream URL (rtsp://, http://)")
     g.add_argument(
         "--loop", action=argparse.BooleanOptionalAction, default=None, help="restart video files at the end"
     )
@@ -170,7 +170,7 @@ def build_parser() -> argparse.ArgumentParser:
     zv.add_argument("--source", help="also check zone bounds against this source's frame size")
     zv.set_defaults(func=cmd_zones_validate)
     ze = zsub.add_parser("edit", help="draw zones on frames from a camera or video")
-    ze.add_argument("--source", help="camera index, video file or stream URL to draw on")
+    ze.add_argument("--source", help="video file or stream URL to draw on")
     ze.set_defaults(func=cmd_zones_edit)
     for zp in (zl, zv, ze):
         zp.add_argument("--zones", dest="zones_file", type=Path, help="zones JSON file (default: zones.json)")
@@ -271,6 +271,11 @@ def _make_app(settings: Settings) -> Any:
 
 
 def _resolve_source(settings: Settings) -> str:
+    if not settings.source:
+        raise ConfigError(
+            "no video source: pass --source with a video file or stream URL, set [video] source "
+            "in crowdcount.toml, or try `crowdcount demo`"
+        )
     if settings.source == "demo":
         from crowdcount.demo import ensure_demo_video
 

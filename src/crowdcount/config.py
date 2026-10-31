@@ -34,7 +34,7 @@ class Settings:
     """Every tunable value in one place. Field names double as CLI ``dest`` names."""
 
     # [video]
-    source: str = "0"
+    source: str = ""
     loop: bool = False
     stride: int = 1
     realtime: bool = True
@@ -121,8 +121,6 @@ def _coerce(name: str, value: Any, base_dir: Path | None = None) -> Any:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ConfigError(f"{name} must be a number")
         return float(value)
-    if name == "source" and isinstance(value, int) and not isinstance(value, bool):
-        return str(value)  # camera index written as a bare number
     if not isinstance(value, str):
         raise ConfigError(f"{name} must be a string")
     return value

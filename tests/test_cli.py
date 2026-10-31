@@ -59,3 +59,8 @@ def test_port_in_use(tmp_path, capsys):
         port = s.getsockname()[1]
         assert main(["serve", "--port", str(port), "--data-dir", str(tmp_path / "data")]) == EXIT_ERROR
     assert "cannot listen on 127.0.0.1" in capsys.readouterr().err
+
+
+def test_missing_source_is_a_usage_error(capsys):
+    assert main(["detect", "--no-display"]) == EXIT_USAGE
+    assert "no video source" in capsys.readouterr().err

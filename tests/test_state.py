@@ -179,3 +179,18 @@ class TestImages:
         state.publish(total=1, zones={}, points=[(10, 10)])
         state.reset_heatmap()
         assert state._heat is not None and float(state._heat.max()) == 0.0
+
+
+def test_heatmap_accumulates_rather_than_marking_coverage(state):
+    # Regression: v1 used cv2.circle, which overwrote pixels with 1.0, so the "heatmap" was a
+    # binary coverage mask. Repeat visits must make a spot hotter.
+    state.publish(total=1, zones={}, points=[(100, 100)])
+    once = float(state._heat.max())
+    for _ in range(9):
+        state.publish(total=1, zones={}, points=[(100, 100)])
+    assert float(state._heat.max()) == pytest.approx(10 * once)
+
+
+def test_heatmap_points_near_the_edge(state):
+    state.publish(total=2, zones={}, points=[(0, 0), (639, 479)])
+    assert float(state._heat.max()) > 0

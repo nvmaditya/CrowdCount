@@ -118,6 +118,7 @@ class SharedState:
         self._heat: np.ndarray | None = None
         self._heat_scale = 1.0
         self._heat_since: float | None = None
+        self._stamp_cache: np.ndarray | None = None
         self._annotated: np.ndarray | None = None
         self._raw: np.ndarray | None = None
         self._frame_seq = 0
@@ -220,10 +221,24 @@ class SharedState:
             self._heat_scale = scale
             self._heat = np.zeros((max(1, round(height * scale)), max(1, round(width * scale))), np.float32)
             self._heat_since = now
-        radius = max(3, round(0.035 * max(self._heat.shape)))
+        stamp = self._stamp()
+        r = stamp.shape[0] // 2
+        h, w = self._heat.shape
         for x, y in points:
             cx, cy = round(x * self._heat_scale), round(y * self._heat_scale)
-            cv2.circle(self._heat, (cx, cy), radius, 1.0, -1)
+            # Add (not overwrite) a Gaussian blob, clipped to the frame.
+            x0, x1, y0, y1 = max(cx - r, 0), min(cx + r + 1, w), max(cy - r, 0), min(cy + r + 1, h)
+            if x0 < x1 and y0 < y1:
+                self._heat[y0:y1, x0:x1] += stamp[y0 - cy + r : y1 - cy + r, x0 - cx + r : x1 - cx + r]
+
+    def _stamp(self) -> np.ndarray:
+        """Gaussian blob added per detection; radius ~3.5% of the heatmap's longer side."""
+        assert self._heat is not None
+        radius = max(3, round(0.035 * max(self._heat.shape)))
+        if self._stamp_cache is None or self._stamp_cache.shape[0] != 2 * radius + 1:
+            k = cv2.getGaussianKernel(2 * radius + 1, radius / 2)
+            self._stamp_cache = (k @ k.T / (k.max() ** 2)).astype(np.float32)
+        return self._stamp_cache
 
     def set_frames(self, annotated: np.ndarray, raw: np.ndarray | None = None) -> None:
         """Store the latest annotated frame (for the live stream) and raw frame (for snapshots)."""
@@ -371,11 +386,8 @@ class SharedState:
             raw = self._raw
         h, w = heat.shape
         peak = float(heat.max())
-        norm = heat / peak if peak > 0 else heat
-        k = max(3, (round(0.08 * max(h, w)) // 2) * 2 + 1)
-        norm = cv2.GaussianBlur(norm, (k, k), 0)
-        if norm.max() > 0:
-            norm = norm / norm.max()
+        # Log scale: busy spots stay distinguishable instead of everything saturating.
+        norm = np.log1p(heat) / np.log1p(peak) if peak > 0 else heat
         colored = cv2.applyColorMap((norm * 255).astype(np.uint8), cv2.COLORMAP_TURBO)
         if raw is not None:
             base = cv2.resize(raw, (w, h), interpolation=cv2.INTER_AREA)

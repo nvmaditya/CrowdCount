@@ -113,7 +113,7 @@ const CC = (() => {
     // ------------------------------------------------------------ DOM
 
     /**
-     * Build an element without innerHTML: el("div", {class: "x", onclick: fn}, "text", child).
+     * Build an element without parsing HTML strings: el("div", {class: "x", onclick: fn}, "text", child).
      * Strings become text nodes, so user data is never parsed as HTML.
      */
     function el(tag, attrs = {}, ...children) {

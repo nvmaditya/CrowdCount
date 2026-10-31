@@ -32,6 +32,16 @@ def test_own_assets_load_nothing_external(asset):
         assert url.startswith(ALLOWED_URLS), f"{asset.name}: {url}"
 
 
+@pytest.mark.parametrize(
+    "script", [p for p in OWN_ASSETS if p.suffix == ".js"], ids=lambda p: str(p.relative_to(WEB_DIR))
+)
+def test_own_scripts_never_parse_html_strings(script):
+    """The DOM is built with CC.el / createElementNS only, so user data is never parsed as HTML."""
+    text = script.read_text(encoding="utf-8")
+    for api in ("innerHTML", "outerHTML", "insertAdjacentHTML", "document.write"):
+        assert api not in text, f"{script.name} mentions {api}"
+
+
 def test_fonts_are_self_hosted():
     css = (WEB_DIR / "assets/css/tokens.css").read_text(encoding="utf-8")
     for name in ("Geist-Variable.woff2", "GeistMono-Variable.woff2"):

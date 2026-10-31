@@ -446,3 +446,98 @@ a:active, button:active { opacity: .7; }
 .hist-open { font-size: 13px; color: var(--muted-foreground); }
 .table-empty td { padding: 24px 12px; text-align: center; color: var(--muted-foreground); }
 .dt-table tbody tr.table-empty:hover { background: none; }
+
+/* ---------- Settings page ---------- */
+.page.narrow { max-width: 1080px; }
+.settings-page { gap: 24px; }
+.settings-page > section { scroll-margin-top: 16px; }
+.settings-tabs { align-self: flex-start; flex-wrap: wrap; max-width: 100%; }
+.settings-tabs .dt-tab { text-decoration: none; }
+.set-head {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+.set-head-text { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.set-desc { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted-foreground); }
+
+.source-list > :last-child { border-bottom: 0; }
+.source-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px;
+  padding: 16px 24px; border-bottom: 1px solid var(--border);
+}
+.source-icon {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: var(--radius-md);
+  background: var(--muted); color: var(--muted-foreground);
+}
+.source-main { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.source-name { display: flex; align-items: center; gap: 8px; min-width: 0; font-weight: 500; }
+.source-name-text { min-width: 0; overflow-wrap: anywhere; }
+.source-url {
+  font-family: var(--font-mono); font-size: 12px; color: var(--muted-foreground);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The command keeps to one line; a long one is cut with an ellipsis (copying still takes all of it). */
+.source-cmd {
+  min-width: 0; max-width: min(100%, 360px);
+  font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.source-actions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+
+/* The add and edit forms for sources and users, shown inside their card. */
+.inline-form {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 16px;
+  padding: 16px 24px; border-bottom: 1px solid var(--border);
+  background: color-mix(in oklch, var(--muted) 45%, transparent);
+}
+.inline-form .login-field { margin: 0; }
+.inline-field { flex: 1 1 200px; min-width: 0; }
+.inline-field.is-wide { flex: 2 1 280px; }
+.inline-field.is-narrow { flex: 0 1 140px; }
+.inline-actions { display: flex; gap: 8px; margin-left: auto; }
+
+.detect-list { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); }
+.detect-item {
+  min-width: 0; display: flex; flex-direction: column; gap: 4px;
+  padding: 16px 24px; border-bottom: 1px solid var(--border);
+}
+.detect-item dt { font-size: 13px; color: var(--muted-foreground); }
+.detect-item dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.detect-hint { font-weight: 400; color: var(--muted-foreground); }
+.detect-foot { padding: 14px 24px; font-size: 13px; }
+
+.users-table { min-width: 560px; }
+.users-table .col-role { width: 140px; }
+.users-table .col-last { width: 180px; }
+.users-table .col-actions { width: 56px; }
+.users-table td { vertical-align: middle; }
+.user-cell { display: inline-flex; align-items: center; gap: 10px; }
+.ui-avatar.is-sm { width: 28px; height: 28px; }
+.user-name { font-weight: 500; overflow-wrap: break-word; }
+.user-you { font-size: 12px; color: var(--muted-foreground); }
+
+.retention-form {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;
+  padding: 20px 24px; border-bottom: 1px solid var(--border);
+}
+.retention-form .login-field { margin: 0; flex: 0 1 220px; }
+.retention-form .set-desc { flex: 1 1 260px; }
+.data-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 16px 24px; }
+.data-foot-label { font-size: 13px; color: var(--muted-foreground); }
+.data-dir { min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.data-foot-grow { flex-grow: 1; }
+
+.log-actions { flex-wrap: wrap; }
+.login-input.select-sm { width: auto; height: 32px; padding: 0 10px; }
+.log-table { min-width: 680px; }
+.log-table .col-time { width: 170px; }
+.log-table .col-cat { width: 110px; }
+.log-table .col-by { width: 120px; }
+.log-text, .log-by { overflow-wrap: break-word; }
+
+.account-form {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); gap: 16px; align-items: end;
+  padding: 20px 24px;
+}
+.account-form .login-field { margin: 0; }
+.account-actions { display: flex; justify-content: flex-end; }

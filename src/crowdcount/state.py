@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import uuid
 from collections import deque
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field, replace
@@ -24,6 +25,12 @@ from crowdcount.zones import ZoneStats
 logger = logging.getLogger(__name__)
 
 DEFAULT_GLOBAL_THRESHOLD = 50
+DEFAULT_WARN_PERCENT = 80
+#: An alert rises at once but drops a level (or clears) only after the lower
+#: condition has held this long, so counts jittering around a limit do not flap.
+ALERT_CLEAR_SECONDS = 5.0
+
+_LEVEL_RANK: dict[str | None, int] = {None: 0, "near": 1, "over": 2}
 
 
 def _iso(ts: float) -> str:
@@ -32,22 +39,72 @@ def _iso(ts: float) -> str:
 
 
 @dataclass(frozen=True)
+class AlertRule:
+    """When to warn about a scope: ``limit`` is the cap, ``warn_percent`` the early-warning band."""
+
+    limit: int
+    warn_percent: int = DEFAULT_WARN_PERCENT
+    enabled: bool = True
+    banner: bool = True
+
+    def __post_init__(self) -> None:
+        if self.limit < 1:
+            raise ValueError("limit must be >= 1")
+        if not 1 <= self.warn_percent <= 100:
+            raise ValueError("warn_percent must be between 1 and 100")
+
+    @property
+    def warn_at(self) -> int:
+        """Smallest count that counts as near the limit (integer ceil, within ``[1, limit]``)."""
+        return min(self.limit, max(1, -(-self.limit * self.warn_percent // 100)))
+
+    def level(self, count: int) -> str | None:
+        """``"over"`` above the limit, ``"near"`` from ``warn_at`` up, else ``None`` (also when disabled)."""
+        if not self.enabled:
+            return None
+        if count > self.limit:
+            return "over"
+        if count >= self.warn_at:
+            return "near"
+        return None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "limit": self.limit,
+            "warn_percent": self.warn_percent,
+            "warn_at": self.warn_at,
+            "enabled": self.enabled,
+            "banner": self.banner,
+        }
+
+
+@dataclass(frozen=True)
 class Alert:
-    """An active threshold breach. ``key`` is ``"global"`` or the zone name."""
+    """An active alert. ``key`` is ``"global"`` or the zone name."""
 
     key: str
     kind: str  # "global" | "zone"
     threshold: int
     current: int
     zone: str | None = None
+    level: str = "over"  # "over" | "near"
+    since: float = 0.0  # epoch seconds when the current level started
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    acknowledged: bool = False
+    banner: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "id": self.id,
             "type": self.kind,
             "zone": self.zone,
+            "level": self.level,
             "threshold": self.threshold,
             "current": self.current,
-            "exceeded": True,
+            "exceeded": self.level == "over",
+            "since": _iso(self.since),
+            "acknowledged": self.acknowledged,
+            "banner": self.banner,
         }
 
 
@@ -88,6 +145,8 @@ class SharedState:
         heatmap_max_side: the heatmap accumulator is downscaled so its longer side is at
             most this many pixels, bounding memory and render cost for large frames.
         clock: time source, injectable for tests.
+        alert_clear_seconds: how long a lower alert level must hold before the alert
+            drops a level or clears (rising is always immediate).
     """
 
     def __init__(
@@ -96,14 +155,16 @@ class SharedState:
         history_size: int = 3600,
         heatmap_max_side: int = 640,
         clock: Callable[[], float] = time.time,
+        alert_clear_seconds: float = ALERT_CLEAR_SECONDS,
     ) -> None:
         self._lock = threading.RLock()
         self._clock = clock
         self._history_size = history_size
         self._heatmap_max_side = heatmap_max_side
         self._listeners: list[AlertListener] = []
-        self._global_threshold = DEFAULT_GLOBAL_THRESHOLD
-        self._zone_thresholds: dict[str, int] = {}
+        self._alert_clear_seconds = alert_clear_seconds
+        self._global_rule = AlertRule(DEFAULT_GLOBAL_THRESHOLD)
+        self._zone_rules: dict[str, AlertRule] = {}
         self._reset_run_data()
         self._status = DetectorStatus()
 
@@ -114,6 +175,7 @@ class SharedState:
         self._history: deque[dict[str, Any]] = deque(maxlen=self._history_size)
         self._bucket_second: int | None = None
         self._active_alerts: dict[str, Alert] = {}
+        self._pending_drop: dict[str, float] = {}  # alert key -> when its lower level began
         self._frame_size: tuple[int, int] = (0, 0)  # (width, height)
         self._heat: np.ndarray | None = None
         self._heat_scale = 1.0
@@ -125,7 +187,7 @@ class SharedState:
         self._jpeg_cache: tuple[int, bytes] | None = None
 
     def reset(self) -> None:
-        """Clear counts, history, heatmap, frames and status. Thresholds are kept."""
+        """Clear counts, history, heatmap, frames and status. Alert rules are kept."""
         with self._lock:
             self._reset_run_data()
             self._status = DetectorStatus()
@@ -174,7 +236,7 @@ class SharedState:
                 snap.peak_total, snap.peak_at = snap.total, now
             self._accumulate_heat(snap.points, now)
             self._record_history(now)
-            new_alerts = self._evaluate_alerts()
+            new_alerts = self._evaluate_alerts(now)
             listeners = list(self._listeners)
 
         for alert in new_alerts:
@@ -200,16 +262,47 @@ class SharedState:
                 {"timestamp": _iso(second), "total_count": self._snap.total, "zone_counts": zone_counts}
             )
 
-    def _evaluate_alerts(self) -> list[Alert]:
+    def _evaluate_alerts(self, now: float) -> list[Alert]:
+        """Update the active alerts for the latest snapshot; returns those newly raised.
+
+        Rising (nothing -> near, near -> over) is immediate and gets a new id. Dropping a
+        level or clearing waits until the lower level has held for ``alert_clear_seconds``;
+        an over -> near drop fires nothing and keeps the id. Disabled or removed rules clear
+        at once.
+        """
+        snap = self._snap
+        scopes = [("global", "global", None, snap.total, self._global_rule)] + [
+            (name, "zone", name, stats.current, self._zone_rules[name])
+            for name, stats in snap.zones.items()
+            if name in self._zone_rules
+        ]
+        scopes = [s for s in scopes if s[4].enabled]
         active: dict[str, Alert] = {}
-        if self._snap.total > self._global_threshold:
-            active["global"] = Alert("global", "global", self._global_threshold, self._snap.total)
-        for name, stats in self._snap.zones.items():
-            threshold = self._zone_thresholds.get(name)
-            if threshold and stats.current > threshold:
-                active[name] = Alert(name, "zone", threshold, stats.current, zone=name)
-        new = [a for key, a in active.items() if key not in self._active_alerts]
+        new: list[Alert] = []
+        pending: dict[str, float] = {}
+        for key, kind, zone, count, rule in scopes:
+            level = rule.level(count)
+            prev = self._active_alerts.get(key)
+            if prev is not None and _LEVEL_RANK[level] < _LEVEL_RANK[prev.level]:
+                started = self._pending_drop.get(key, now)
+                if now - started < self._alert_clear_seconds:
+                    pending[key] = started
+                    active[key] = replace(prev, current=count, threshold=rule.limit, banner=rule.banner)
+                    continue
+            if level is None:
+                continue
+            if prev is None or _LEVEL_RANK[level] > _LEVEL_RANK[prev.level]:
+                alert = Alert(key, kind, rule.limit, count, zone, level=level, since=now, banner=rule.banner)
+                new.append(alert)
+            elif level != prev.level:
+                alert = replace(
+                    prev, level=level, since=now, current=count, threshold=rule.limit, banner=rule.banner
+                )
+            else:
+                alert = replace(prev, current=count, threshold=rule.limit, banner=rule.banner)
+            active[key] = alert
         self._active_alerts = active
+        self._pending_drop = pending
         return new
 
     def _accumulate_heat(self, points: Sequence[tuple[int, int]], now: float) -> None:
@@ -258,29 +351,65 @@ class SharedState:
             if listener in self._listeners:
                 self._listeners.remove(listener)
 
-    def set_global_threshold(self, threshold: int) -> None:
-        if threshold < 1:
-            raise ValueError("threshold must be >= 1")
+    def set_global_rule(self, rule: AlertRule) -> None:
         with self._lock:
-            self._global_threshold = int(threshold)
+            self._global_rule = rule
+
+    def set_zone_rule(self, zone: str, rule: AlertRule | None) -> None:
+        """Set a zone's rule; ``None`` removes it."""
+        with self._lock:
+            if rule is None:
+                self._zone_rules.pop(zone, None)
+            else:
+                self._zone_rules[zone] = rule
+
+    def rename_zone_rule(self, old: str, new: str | None) -> None:
+        """Move a zone's rule to ``new`` (``None`` drops it). No-op if ``old`` has no rule."""
+        with self._lock:
+            rule = self._zone_rules.pop(old, None)
+            if rule is not None and new is not None:
+                self._zone_rules[new] = rule
+
+    def rules(self) -> dict[str, Any]:
+        """The global rule and every zone rule, as plain dicts."""
+        with self._lock:
+            return {
+                "global": self._global_rule.to_dict(),
+                "zones": {name: rule.to_dict() for name, rule in self._zone_rules.items()},
+            }
+
+    def acknowledge_alert(self, alert_id: str) -> bool:
+        """Mark an active alert acknowledged until it clears. ``False`` if no active alert has that id."""
+        with self._lock:
+            for key, alert in self._active_alerts.items():
+                if alert.id == alert_id:
+                    self._active_alerts[key] = replace(alert, acknowledged=True)
+                    return True
+        return False
+
+    def set_global_threshold(self, threshold: int) -> None:
+        """Set the global limit, keeping the rule's other options."""
+        with self._lock:
+            self._global_rule = replace(self._global_rule, limit=int(threshold))
 
     def get_global_threshold(self) -> int:
         with self._lock:
-            return self._global_threshold
+            return self._global_rule.limit
 
     def set_zone_threshold(self, zone: str, threshold: int | None) -> None:
-        """Set a zone threshold; ``None`` removes it."""
+        """Set a zone limit, keeping its other options (defaults for a new rule); ``None`` removes it."""
         with self._lock:
             if threshold is None:
-                self._zone_thresholds.pop(zone, None)
-            elif threshold < 1:
-                raise ValueError("threshold must be >= 1")
+                self._zone_rules.pop(zone, None)
             else:
-                self._zone_thresholds[zone] = int(threshold)
+                rule = self._zone_rules.get(zone)
+                self._zone_rules[zone] = (
+                    replace(rule, limit=int(threshold)) if rule else AlertRule(int(threshold))
+                )
 
     def get_zone_thresholds(self) -> dict[str, int]:
         with self._lock:
-            return dict(self._zone_thresholds)
+            return {name: rule.limit for name, rule in self._zone_rules.items()}
 
     # ------------------------------------------------------------------ reading
 
@@ -311,7 +440,7 @@ class SharedState:
                 name: {
                     "current": s.current,
                     "total_visitors": s.total_visitors,
-                    "threshold": self._zone_thresholds.get(name),
+                    "threshold": self._zone_rules[name].limit if name in self._zone_rules else None,
                 }
                 for name, s in self._snap.zones.items()
             }
@@ -327,7 +456,7 @@ class SharedState:
             return [{**b, "zone_counts": dict(b["zone_counts"])} for b in items]
 
     def alerts(self) -> dict[str, dict[str, Any]]:
-        """Currently active alerts keyed by ``"global"`` or zone name. Read-only."""
+        """Currently active alerts (both levels) keyed by ``"global"`` or zone name. Read-only."""
         with self._lock:
             return {key: a.to_dict() for key, a in self._active_alerts.items()}
 
@@ -341,8 +470,9 @@ class SharedState:
                 "peak_at": _iso(snap.peak_at) if snap.peak_at is not None else None,
                 "zones": self.zone_stats(),
                 "alerts": self.alerts(),
-                "global_threshold": self._global_threshold,
-                "zone_thresholds": dict(self._zone_thresholds),
+                "rules": self.rules(),
+                "global_threshold": self._global_rule.limit,
+                "zone_thresholds": self.get_zone_thresholds(),
                 "last_update": _iso(snap.last_update) if snap.last_update is not None else None,
                 "detection_running": self._status.state == "running",
                 "status": asdict(self._status),

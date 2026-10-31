@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from crowdcount.state import SharedState
+from crowdcount.state import DEFAULT_GLOBAL_THRESHOLD, AlertRule, SharedState, _iso
 from crowdcount.zones import ZoneStats
 
 
@@ -23,7 +23,7 @@ def clock():
 
 @pytest.fixture
 def state(clock):
-    s = SharedState(clock=clock)
+    s = SharedState(clock=clock, alert_clear_seconds=0)
     s.begin_run(width=640, height=480, source="test.mp4")
     return s
 
@@ -81,10 +81,10 @@ class TestAlerts:
         state.publish(total=5, zones={})  # breaches again
         assert [a.key for a in fired] == ["global", "global"]
 
-    def test_threshold_is_exclusive(self, state):
+    def test_count_at_the_threshold_is_near_not_over(self, state):
         state.set_global_threshold(3)
-        assert state.publish(total=3, zones={}) == []
-        assert state.alerts() == {}
+        assert [a.level for a in state.publish(total=3, zones={})] == ["near"]
+        assert state.alerts()["global"]["exceeded"] is False
 
     def test_zone_alerts(self, state):
         state.set_zone_threshold("Gate", 1)
@@ -123,6 +123,142 @@ class TestAlerts:
             state.set_global_threshold(bad)
         with pytest.raises(ValueError):
             state.set_zone_threshold("A", bad)
+
+
+class TestAlertRules:
+    @pytest.mark.parametrize(
+        ("limit", "pct", "warn_at"),
+        [(4, 80, 4), (10, 80, 8), (3, 80, 3), (6, 80, 5), (1, 80, 1), (5, 100, 5), (100, 1, 1)],
+    )
+    def test_warn_at_rounds_up_within_the_limit(self, limit, pct, warn_at):
+        assert AlertRule(limit, warn_percent=pct).warn_at == warn_at
+
+    @pytest.mark.parametrize(
+        "kwargs", [{"limit": 0}, {"limit": 5, "warn_percent": 0}, {"limit": 5, "warn_percent": 101}]
+    )
+    def test_invalid_rules(self, kwargs):
+        with pytest.raises(ValueError):
+            AlertRule(**kwargs)
+
+    def test_near_fires_before_over_and_de_escalation_is_quiet(self, state):
+        state.set_global_rule(AlertRule(10))
+
+        def levels(new):
+            return [a.level for a in new]
+
+        assert state.publish(total=7, zones={}) == []
+        assert levels(state.publish(total=8, zones={})) == ["near"]
+        assert state.alerts()["global"]["exceeded"] is False
+        assert levels(state.publish(total=11, zones={})) == ["over"]
+        assert state.publish(total=9, zones={}) == []  # over -> near fires nothing
+        assert state.alerts()["global"]["level"] == "near"
+        assert state.publish(total=3, zones={}) == []
+        assert state.alerts() == {}
+        assert levels(state.publish(total=8, zones={})) == ["near"]
+
+    def test_since_marks_when_the_current_level_started(self, state, clock):
+        state.set_global_rule(AlertRule(10))
+        start = clock.now
+        state.publish(total=8, zones={})
+        clock.advance(5)
+        state.publish(total=9, zones={})
+        assert state.alerts()["global"]["since"] == _iso(start)
+        clock.advance(5)
+        state.publish(total=11, zones={})
+        assert state.alerts()["global"]["since"] == _iso(start + 10)
+
+    def test_disabled_rule_clears_without_firing(self, state):
+        state.set_global_rule(AlertRule(10))
+        state.publish(total=12, zones={})
+        state.set_global_rule(AlertRule(10, enabled=False))
+        assert state.publish(total=20, zones={}) == []
+        assert state.alerts() == {}
+
+    def test_changing_the_limit_mid_alert_does_not_refire(self, state):
+        state.set_global_rule(AlertRule(10))
+        state.publish(total=12, zones={})
+        state.set_global_threshold(11)
+        assert state.publish(total=12, zones={}) == []
+        assert state.alerts()["global"]["threshold"] == 11
+        state.set_global_threshold(20)
+        assert state.publish(total=12, zones={}) == []
+        assert state.alerts() == {}
+
+    def test_acknowledged_until_it_fires_again(self, state):
+        fired = []
+        state.add_alert_listener(fired.append)
+        state.set_global_rule(AlertRule(2))
+        state.publish(total=3, zones={})
+        alert_id = state.alerts()["global"]["id"]
+        assert fired[0].id == alert_id
+        assert state.acknowledge_alert(alert_id) is True
+        assert state.alerts()["global"]["acknowledged"] is True
+        assert state.acknowledge_alert("nope") is False
+        state.publish(total=0, zones={})
+        state.publish(total=3, zones={})
+        assert state.alerts()["global"]["acknowledged"] is False
+        assert state.alerts()["global"]["id"] != alert_id
+
+    def test_setting_a_threshold_keeps_rule_options(self, state):
+        state.set_zone_rule("A", AlertRule(5, warn_percent=50, banner=False))
+        state.set_zone_threshold("A", 7)
+        assert state.rules()["zones"]["A"] == {
+            "limit": 7,
+            "warn_percent": 50,
+            "warn_at": 4,
+            "enabled": True,
+            "banner": False,
+        }
+
+    def test_rename_zone_rule(self, state):
+        state.set_zone_rule("A", AlertRule(5, banner=False))
+        state.rename_zone_rule("A", "B")
+        assert list(state.rules()["zones"]) == ["B"]
+        assert state.rules()["zones"]["B"]["banner"] is False
+        state.rename_zone_rule("B", None)
+        assert state.rules()["zones"] == {}
+
+    def test_summary_includes_rules(self, state):
+        assert state.summary()["rules"]["global"]["limit"] == DEFAULT_GLOBAL_THRESHOLD
+
+
+class TestFlapProtection:
+    @pytest.fixture
+    def slow_state(self, clock):
+        s = SharedState(clock=clock, alert_clear_seconds=5)
+        s.begin_run(width=640, height=480, source="test.mp4")
+        s.set_global_rule(AlertRule(10))
+        return s
+
+    def test_flapping_counts_fire_once(self, slow_state, clock):
+        fired = []
+        slow_state.add_alert_listener(fired.append)
+        for i in range(30):
+            slow_state.publish(total=8 if i % 2 == 0 else 7, zones={})
+            clock.advance(0.1)
+        assert [a.level for a in fired] == ["near"]
+
+    def test_alerts_drop_only_after_the_count_stays_low(self, slow_state, clock):
+        slow_state.publish(total=12, zones={})
+        clock.advance(1)
+        slow_state.publish(total=9, zones={})
+        assert slow_state.alerts()["global"]["level"] == "over"  # not low for 5 s yet
+        clock.advance(2)
+        slow_state.publish(total=12, zones={})  # back over: the pending drop is cancelled
+        clock.advance(1)
+        slow_state.publish(total=3, zones={})
+        clock.advance(4)
+        slow_state.publish(total=3, zones={})
+        assert slow_state.alerts()["global"]["level"] == "over"  # only 4 s low
+        clock.advance(1)
+        slow_state.publish(total=3, zones={})
+        assert slow_state.alerts() == {}
+
+    def test_disabling_a_rule_clears_at_once(self, slow_state):
+        slow_state.publish(total=12, zones={})
+        slow_state.set_global_rule(AlertRule(10, enabled=False))
+        slow_state.publish(total=12, zones={})
+        assert slow_state.alerts() == {}
 
 
 class TestSnapshot:

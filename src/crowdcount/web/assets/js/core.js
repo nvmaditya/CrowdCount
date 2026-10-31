@@ -1,5 +1,5 @@
-/* Shared helpers for the CrowdCount UI: session, API calls, safe DOM building, feedback, controls (switch, menu,
- * confirm dialog), theme, formatting, alert scopes.
+/* Shared helpers for the CrowdCount UI: session, API calls, safe DOM building, render helpers, feedback, controls
+ * (switch, menu, confirm dialog), theme, formatting, alert scopes.
  * Needs icons.js. Replaces common.js on the new pages (the two are never loaded together). */
 "use strict";
 
@@ -170,9 +170,63 @@ const CC = (() => {
             code ? el("span", { class: "code" }, code) : null);
     }
 
+    // ------------------------------------------------------------ rendering (pages re-render on every poll)
+
+    /**
+     * A render memo for one page: the returned changed(region, value) is true when `value` differs from
+     * what `region` last rendered (compared as JSON), and remembers it. Each page makes its own.
+     */
+    function changeTracker() {
+        const keys = new Map();
+        return (region, value) => {
+            const key = JSON.stringify(value);
+            if (keys.get(region) === key) return false;
+            keys.set(region, key);
+            return true;
+        };
+    }
+
+    /** Set a node's text only when it differs, so a poll that changes nothing touches nothing. */
+    function setText(node, text) {
+        const value = String(text);
+        if (node.textContent !== value) node.textContent = value;
+    }
+
+    /** Give a focusable node the data-key that replaceKeepingFocus finds it by after a re-render; returns it. */
+    function withKey(node, key) {
+        node.dataset.key = key;
+        return node;
+    }
+
+    /**
+     * Replace a container's children without losing keyboard focus: a focused node that is put back (an open
+     * form) keeps focus and its caret, otherwise focus moves to the new element with the same data-key.
+     */
+    function replaceKeepingFocus(box, nodes) {
+        const active = document.activeElement;
+        const inside = Boolean(active) && box.contains(active);
+        let caret = null;
+        try {
+            if (inside && typeof active.selectionStart === "number") caret = [active.selectionStart, active.selectionEnd];
+        } catch (e) { /* inputs without a selection */ }
+        box.replaceChildren(...nodes);
+        if (!inside) return;
+        if (active.isConnected) {
+            active.focus({ preventScroll: true });
+            try {
+                if (caret) active.setSelectionRange(...caret);
+            } catch (e) { /* inputs without a selection */ }
+        } else if (active.dataset?.key) {
+            box.querySelector(`[data-key="${CSS.escape(active.dataset.key)}"]`)?.focus();
+        }
+    }
+
     // ------------------------------------------------------------ feedback
 
     const TOAST_ICONS = { success: "check", warn: "triangle-alert", error: "triangle-alert" };
+
+    /** The warning for /api/export/* answering 404 (no history recorded yet). */
+    const NO_HISTORY_MESSAGE = "Nothing to export yet: start the detector first.";
 
     /** Show a short message in the top-right stack. Errors stay for 8 s, everything else for 4 s. */
     function toast(message, type = "success") {
@@ -487,7 +541,8 @@ const CC = (() => {
         session, saveSession, clearSession, isSignedIn, isAdmin, signOut,
         api, ApiError, download,
         el, $, $$, icon, logo, emptyState,
-        toast,
+        changeTracker, setText, withKey, replaceKeepingFocus,
+        toast, NO_HISTORY_MESSAGE,
         switchControl, menu, confirm,
         theme, setTheme,
         fmtTime, fmtClock, fmtDateTime, fmtStamp,

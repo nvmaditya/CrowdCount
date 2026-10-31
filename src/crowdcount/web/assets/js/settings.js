@@ -9,13 +9,13 @@
         return;
     }
 
-    const { el, $, $$, icon, api, toast, emptyState } = CC;
+    const { el, $, $$, icon, api, toast, emptyState, setText, withKey, replaceKeepingFocus } = CC;
+    const changed = CC.changeTracker();
 
     const LOG_PAGE = 50;
     const LOG_MAX = 1000; // the largest page the server returns
     const TRACKERS = { bytetrack: "ByteTrack", botsort: "BoT-SORT" };
     const CATEGORIES = { AUTH: "Sign-in", CONFIG: "Change", ALERT: "Alert", SYSTEM: "System" };
-    const NO_HISTORY = "Nothing to export yet: start the detector first.";
 
     const admin = CC.isAdmin();
     const me = CC.session()?.user || {};
@@ -34,47 +34,7 @@
         logDone: true,
         logLoaded: false,
         logCategory: "",
-        keys: {},
     };
-
-    /** True when `value` differs from what `region` last rendered (and remembers it). */
-    function changed(region, value) {
-        const key = JSON.stringify(value);
-        if (ui.keys[region] === key) return false;
-        ui.keys[region] = key;
-        return true;
-    }
-
-    function setText(node, text) {
-        const value = String(text);
-        if (node.textContent !== value) node.textContent = value;
-    }
-
-    function withKey(node, key) {
-        node.dataset.key = key;
-        return node;
-    }
-
-    /**
-     * Replace a container's children. Keyboard focus stays on a focused node that is put back (an open
-     * form, with its caret), or moves to the new element with the same data-key.
-     */
-    function replaceKeepingFocus(box, nodes) {
-        const active = document.activeElement;
-        const inside = Boolean(active) && box.contains(active);
-        let caret = null;
-        try {
-            if (inside && typeof active.selectionStart === "number") caret = [active.selectionStart, active.selectionEnd];
-        } catch (e) { /* inputs without a selection */ }
-        box.replaceChildren(...nodes);
-        if (!inside) return;
-        if (active.isConnected) {
-            active.focus({ preventScroll: true });
-            if (caret) active.setSelectionRange(...caret);
-        } else if (active.dataset?.key) {
-            box.querySelector(`[data-key="${CSS.escape(active.dataset.key)}"]`)?.focus();
-        }
-    }
 
     function field(id, label, input, cls) {
         return el("div", { class: cls ? `login-field ${cls}` : "login-field" }, el("label", { for: id }, label), input);
@@ -92,7 +52,7 @@
             try {
                 await CC.download(typeof path === "function" ? path() : path);
             } catch (e) {
-                if (e.status === 404) toast(NO_HISTORY, "warn");
+                if (e.status === 404) toast(CC.NO_HISTORY_MESSAGE, "warn");
                 else toast(e.message, "error");
             } finally {
                 button.disabled = false;

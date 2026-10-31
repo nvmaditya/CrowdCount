@@ -4,7 +4,8 @@
 "use strict";
 
 (() => {
-    const { el, $, icon, api, toast, emptyState } = CC;
+    const { el, $, icon, api, toast, emptyState, setText, withKey, replaceKeepingFocus } = CC;
+    const changed = CC.changeTracker();
 
     const HISTORY_MS = 10000;
     const HISTORY_LIMIT = 500;
@@ -33,34 +34,12 @@
         historyAsAdmin: false, // whether the latest request went to it
         tab: "all",
         alertIds: null,
-        keys: {},
     };
 
     // Rules this page just saved or removed (name null = global), laid over the summary's rules for the
     // table and the editor until the summary reports them or PENDING_MS pass, so a summary fetched
     // before the change can't put the old rule back (or send the editor away from a new one).
     const pending = new Map();
-
-    /** True when `value` differs from what `region` last rendered (and remembers it). */
-    function changed(region, value) {
-        const key = JSON.stringify(value);
-        if (ui.keys[region] === key) return false;
-        ui.keys[region] = key;
-        return true;
-    }
-
-    function setText(node, text) {
-        const value = String(text);
-        if (node.textContent !== value) node.textContent = value;
-    }
-
-    /** Replace a container's children, keeping keyboard focus on the new element with the same data-key. */
-    function replaceKeepingFocus(box, nodes) {
-        const active = document.activeElement;
-        const key = active && box.contains(active) ? active.dataset.key : undefined;
-        box.replaceChildren(...nodes);
-        if (key) box.querySelector(`[data-key="${CSS.escape(key)}"]`)?.focus();
-    }
 
     const has = (obj, key) => Boolean(obj) && Object.prototype.hasOwnProperty.call(obj, key);
     const people = (n) => CC.plural(n, "person", "people");
@@ -274,11 +253,6 @@
                 dataset: { key: `edit:${key}` },
                 onclick: () => openEditor(name),
             }, icon("pencil")) : null));
-    }
-
-    function withKey(node, key) {
-        node.dataset.key = key;
-        return node;
     }
 
     function renderRules() {

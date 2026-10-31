@@ -4,7 +4,8 @@
 "use strict";
 
 (() => {
-    const { el, $, $$, icon, api, toast, emptyState } = CC;
+    const { el, $, $$, icon, api, toast, emptyState, setText } = CC;
+    const changed = CC.changeTracker();
 
     const CHART_MS = 5000;
     const HEATMAP_MS = 5000;
@@ -62,23 +63,7 @@
         chartLimit: null,
         heatSince: undefined,
         alertIds: null,
-        keys: {},
     };
-
-    /** True when `value` differs from what `region` last rendered (and remembers it). */
-    function changed(region, value) {
-        const key = JSON.stringify(value);
-        if (ui.keys[region] === key) return false;
-        ui.keys[region] = key;
-        return true;
-    }
-
-    function setText(selector, text, cls) {
-        const node = $(selector);
-        const value = String(text);
-        if (node.textContent !== value) node.textContent = value;
-        if (cls !== undefined && node.className !== cls) node.className = cls;
-    }
 
     function detectorState() {
         if (!ui.connected) return "disconnected";
@@ -122,7 +107,7 @@
             try {
                 await CC.download(path);
             } catch (e) {
-                if (e.status === 404) toast("Nothing to export yet: start the detector first.", "warn");
+                if (e.status === 404) toast(CC.NO_HISTORY_MESSAGE, "warn");
                 else toast(e.message, "error");
             } finally {
                 button.disabled = false;
@@ -191,8 +176,8 @@
                     el("span", { class: "banner-detail" })),
                 ...(model.ids.length ? [actions] : []));
         }
-        setText("#banner .banner-title", model.title);
-        setText("#banner .banner-detail", model.detail);
+        setText($("#banner .banner-title"), model.title);
+        setText($("#banner .banner-detail"), model.detail);
         box.hidden = false;
     }
 
@@ -222,27 +207,31 @@
     function renderStats() {
         const s = ui.summary;
         const zoneCount = ui.scopes.filter((x) => x.kind === "zone").length;
-        setText("#stat-now", s.last_update ? s.total_count : "–");
-        setText("#stat-now-main", zoneCount ? `Across ${CC.plural(zoneCount, "zone")}` : "No zones drawn");
-        setText("#stat-now-sub", s.last_update ? `Updated ${CC.fmtTime(s.last_update)}` : "Waiting for the detector");
+        setText($("#stat-now"), s.last_update ? s.total_count : "–");
+        setText($("#stat-now-main"), zoneCount ? `Across ${CC.plural(zoneCount, "zone")}` : "No zones drawn");
+        setText($("#stat-now-sub"), s.last_update ? `Updated ${CC.fmtTime(s.last_update)}` : "Waiting for the detector");
 
-        setText("#stat-peak", s.peak_count);
-        setText("#stat-peak-main", s.peak_at ? `at ${CC.fmtTime(s.peak_at)}` : "–");
-        setText("#stat-peak-sub", s.status?.started_at ? `Since detection started at ${CC.fmtClock(s.status.started_at)}` : "");
+        setText($("#stat-peak"), s.peak_count);
+        setText($("#stat-peak-main"), s.peak_at ? `at ${CC.fmtTime(s.peak_at)}` : "–");
+        setText($("#stat-peak-sub"), s.status?.started_at ? `Since detection started at ${CC.fmtClock(s.status.started_at)}` : "");
 
         const total = ui.scopes.find((x) => x.kind === "global");
         const [levelText, tone] = TOTAL_FOOT[total?.level || "none"];
-        setText("#stat-total", total && total.ratio !== null ? `${Math.round(total.ratio * 100)}%` : "–");
-        setText("#stat-total-main", levelText, `stat-foot-main ${tone}`);
-        setText("#stat-total-sub", total?.rule ? `${s.total_count} of a ${total.rule.limit}-person limit` : "");
+        setText($("#stat-total"), total && total.ratio !== null ? `${Math.round(total.ratio * 100)}%` : "–");
+        const totalMain = $("#stat-total-main");
+        setText(totalMain, levelText);
+        totalMain.className = `stat-foot-main ${tone}`;
+        setText($("#stat-total-sub"), total?.rule ? `${s.total_count} of a ${total.rule.limit}-person limit` : "");
 
         const alerts = Object.values(s.alerts || {});
         const over = alerts.filter((a) => a.level === "over").length;
         const near = alerts.filter((a) => a.level === "near").length;
         const rules = [s.rules?.global, ...Object.values(s.rules?.zones || {})].filter((r) => r?.enabled).length;
-        setText("#stat-alerts", over, over ? "stat-value t-destructive" : "stat-value");
-        setText("#stat-alerts-main", `${over} over, ${near} near the limit`);
-        setText("#stat-alerts-sub", `${CC.plural(rules, "alert rule")} on`);
+        const alertsValue = $("#stat-alerts");
+        setText(alertsValue, over);
+        alertsValue.className = over ? "stat-value t-destructive" : "stat-value";
+        setText($("#stat-alerts-main"), `${over} over, ${near} near the limit`);
+        setText($("#stat-alerts-sub"), `${CC.plural(rules, "alert rule")} on`);
     }
 
     // ------------------------------------------------------------ camera
@@ -252,7 +241,7 @@
         const st = (ui.connected && ui.summary?.status) || {};
         const streaming = state === "running" && document.visibilityState === "visible";
         const size = st.frame_width && st.frame_height ? `${st.frame_width} × ${st.frame_height}` : "";
-        setText("#camera-size", size);
+        setText($("#camera-size"), size);
         $("#camera-size").hidden = !size;
         $("#camera-live").hidden = !streaming;
         $("#camera-fullscreen").hidden = !streaming;
@@ -339,7 +328,7 @@
             button.classList.toggle("active", on);
             button.setAttribute("aria-pressed", String(on));
         }
-        setText("#chart-sub", RANGES[ui.range].sub);
+        setText($("#chart-sub"), RANGES[ui.range].sub);
     }
 
     let historySeq = 0;
@@ -554,7 +543,7 @@
 
     function renderHeatmap() {
         const since = ui.summary.heatmap_since;
-        setText("#heat-sub", since ? `Where people spent time since ${CC.fmtClock(since)}` : "Builds up as people are detected");
+        setText($("#heat-sub"), since ? `Where people spent time since ${CC.fmtClock(since)}` : "Builds up as people are detected");
         $("#heat-reset").hidden = !CC.isSignedIn();
         if (since !== ui.heatSince) {
             ui.heatSince = since;
@@ -620,7 +609,7 @@
         renderZones();
         renderLegend();
         renderHeatmap();
-        setText("#footer-version", `CrowdCount ${ui.summary.version} · AGPL-3.0`);
+        setText($("#footer-version"), `CrowdCount ${ui.summary.version} · AGPL-3.0`);
         if (changed("limit", globalLimit())) drawChart();
         const ids = Object.values(ui.summary.alerts || {}).map((a) => a.id).sort().join(",");
         if (ui.alertIds !== null && ids !== ui.alertIds) refreshEvents();

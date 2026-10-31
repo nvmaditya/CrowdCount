@@ -1,0 +1,181 @@
+/* ============================================================================
+   CrowdCount design tokens
+   shadcn/ui neutral tokens (new-york-v4), copied verbatim from the design
+   system's colors_and_type.css. Light theme on :root, dark theme on .dark
+   (set on <html> by theme-init.js). Fonts are self-hosted (vendor/geist,
+   OFL-1.1); the CSP blocks external fonts.
+   ============================================================================ */
+
+/* ----- Fonts ----- */
+@font-face {
+  font-family: "Geist";
+  src: url("../../vendor/geist/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("../../vendor/geist/GeistMono-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  /* Radius scale — derived from a single --radius token (0.625rem = 10px) */
+  --radius: 0.625rem;
+  --radius-sm: calc(var(--radius) * 0.6); /* ~6px  */
+  --radius-md: calc(var(--radius) * 0.8); /* ~8px  */
+  --radius-lg: var(--radius);             /* 10px  */
+  --radius-xl: calc(var(--radius) * 1.4); /* ~14px */
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+
+  /* ---- Core semantic colors (LIGHT) ---- */
+  --background: oklch(1 0 0);                  /* pure white            */
+  --foreground: oklch(0% 0 0);                 /* near-pure black text  */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0% 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0% 0 0);
+
+  --primary: oklch(0% 0 0);                    /* black — primary action */
+  --primary-foreground: oklch(0.985 0 0);      /* off-white on primary   */
+  --secondary: oklch(0.97 0 0);                /* subtle gray fill       */
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);        /* secondary text         */
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+
+  --destructive: oklch(0.577 0.245 27.325);    /* red                    */
+  --destructive-foreground: oklch(0.97 0.01 17);
+
+  --border: oklch(0.922 0 0);                  /* hairline border        */
+  --input: oklch(0.922 0 0);                   /* input border           */
+  --ring: oklch(0.708 0 0);                    /* focus ring (mid gray)  */
+
+  /* Charts — built on the blue ramp */
+  --chart-1: oklch(0.809 0.105 251.813);
+  --chart-2: oklch(0.623 0.214 259.815);
+  --chart-3: oklch(0.546 0.245 262.881);
+  --chart-4: oklch(0.488 0.243 264.376);
+  --chart-5: oklch(0.424 0.199 265.638);
+
+  /* Sidebar surface */
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0% 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Misc surfaces */
+  --surface: oklch(0.98 0 0);
+  --surface-foreground: var(--foreground);
+  --code: var(--surface);
+  --code-foreground: var(--surface-foreground);
+  --code-highlight: oklch(0.96 0 0);
+  --code-number: oklch(0.56 0 0);
+  --selection: oklch(0% 0 0);
+  --selection-foreground: oklch(1 0 0);
+
+  /* ---- Type tokens ---- */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, "Menlo", "Consolas",
+    monospace;
+
+  /* Tailwind's text scale (used across shadcn). rem @ 16px base. */
+  --text-xs: 0.75rem;    /* 12px / lh 1rem    */
+  --text-sm: 0.875rem;   /* 14px / lh 1.25rem — workhorse UI size */
+  --text-base: 1rem;     /* 16px / lh 1.5rem  */
+  --text-lg: 1.125rem;   /* 18px / lh 1.75rem */
+  --text-xl: 1.25rem;    /* 20px / lh 1.75rem */
+  --text-2xl: 1.5rem;    /* 24px / lh 2rem    */
+  --text-3xl: 1.875rem;  /* 30px              */
+  --text-4xl: 2.25rem;   /* 36px              */
+  --text-5xl: 3rem;      /* 48px              */
+
+  /* Font weights used in the system */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Spacing base — Tailwind --spacing unit = 0.25rem (4px) */
+  --spacing: 0.25rem;
+
+  /* Shadow system (Tailwind defaults, used by shadcn) */
+  --shadow-2xs: 0 1px rgb(0 0 0 / 0.05);
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.371 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.58 0.22 27);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.439 0 0);
+
+  --surface: oklch(0.2 0 0);
+  --surface-foreground: oklch(0.708 0 0);
+  --code: var(--surface);
+  --code-foreground: var(--surface-foreground);
+  --code-highlight: oklch(0.27 0 0);
+  --code-number: oklch(0.72 0 0);
+  --selection: oklch(0.922 0 0);
+  --selection-foreground: oklch(0.205 0 0);
+}
+
+/* ----- CrowdCount additions ----- */
+:root {
+  color-scheme: light;
+  /* "Near limit": early-warning amber */
+  --warn: oklch(0.769 0.165 70);
+  --warn-fg: oklch(0.47 0.13 58);
+  --warn-bg: oklch(0.769 0.165 70 / 0.16);
+  /* The "Detecting" status dot */
+  --ok: oklch(0.62 0.17 150);
+}
+
+.dark {
+  color-scheme: dark;
+  --warn-fg: oklch(0.86 0.13 80);
+  --warn-bg: oklch(0.769 0.165 70 / 0.2);
+}

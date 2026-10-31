@@ -2,54 +2,69 @@
 "use strict";
 
 (() => {
-    const { $, el, icon, api } = CC;
-    const params = new URLSearchParams(location.search);
+    const { $, api } = CC;
+    const form = $("#login-form");
+    const username = $("#username");
+    const password = $("#password");
+    const toggle = $("#toggle-password");
+    const submit = $("#submit");
+    const message = $("#message");
 
-    function destination(role) {
-        const next = params.get("next");
-        // Only same-site relative paths, to avoid an open redirect.
-        if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-        return role === "admin" ? "admin.html" : "./";
+    /** Where to go after signing in: `?next=` when it is a path on this site, otherwise the dashboard. */
+    function destination() {
+        const next = new URLSearchParams(location.search).get("next");
+        if (next && next.startsWith("/") && !next.startsWith("//")) {
+            // Resolve it to catch tricks such as "/\evil.example", which browsers read as "//evil.example".
+            const url = new URL(next, location.origin);
+            if (url.origin === location.origin) return url.pathname + url.search + url.hash;
+        }
+        return "./";
     }
 
-    const existing = CC.session();
-    if (existing?.token) {
-        api("/auth/me").then((user) => location.replace(destination(user.role))).catch(() => CC.clearSession());
+    if (CC.isSignedIn()) {
+        api("/auth/me")
+            .then(() => location.replace(destination()))
+            .catch((e) => {
+                if (e.status) CC.clearSession(); // rejected by the server; keep it if the server is unreachable
+            });
     }
 
-    function showMessage(text, kind = "danger") {
-        $("#message").replaceChildren(el("div", { class: `alert alert-${kind} py-2 cc-small d-flex gap-2 align-items-start` },
-            icon(kind === "danger" ? "exclamation-circle" : "info-circle"), el("span", {}, text)));
+    $("#brand-logo").append(CC.logo(40));
+
+    function showPassword(show) {
+        password.type = show ? "text" : "password";
+        toggle.setAttribute("aria-label", show ? "Hide password" : "Show password");
+        toggle.replaceChildren(CC.icon(show ? "eye-off" : "eye"));
+    }
+    showPassword(false);
+    toggle.addEventListener("click", () => showPassword(password.type === "password"));
+
+    function setPending(pending) {
+        submit.disabled = pending;
+        if (pending) submit.setAttribute("aria-busy", "true");
+        else submit.removeAttribute("aria-busy");
+        submit.replaceChildren(...(pending ? [CC.icon("loader-circle", { cls: "spin" })] : []), "Sign in");
     }
 
-    $("#toggle-password").addEventListener("click", (event) => {
-        const input = $("#password");
-        const show = input.type === "password";
-        input.type = show ? "text" : "password";
-        event.currentTarget.replaceChildren(icon(show ? "eye-slash" : "eye"));
-        event.currentTarget.setAttribute("aria-label", show ? "Hide password" : "Show password");
-    });
-
-    $("#login-form").addEventListener("submit", async (event) => {
+    form.addEventListener("submit", async (event) => {
         event.preventDefault();
-        const username = $("#username").value.trim();
-        const password = $("#password").value;
-        if (!username || !password) {
-            showMessage("Enter your username and password.");
+        const user = username.value.trim();
+        if (!user || !password.value) {
+            message.textContent = "Enter your username and password.";
+            (user ? password : username).focus();
             return;
         }
-        $("#submit").disabled = true;
-        $("#spinner").classList.remove("d-none");
+        message.textContent = "";
+        setPending(true);
         try {
-            const data = await api("/auth/login", { method: "POST", body: { username, password } });
+            const data = await api("/auth/login", { method: "POST", body: { username: user, password: password.value } });
             CC.saveSession(data, $("#remember").checked);
-            location.replace(destination(data.user.role));
+            location.replace(destination());
+            return; // stay disabled while the next page loads
         } catch (e) {
-            showMessage(e.status === 401 ? "Incorrect username or password." : e.message);
-            $("#password").select();
-        } finally {
-            $("#submit").disabled = false;
-            $("#spinner").classList.add("d-none");
+            message.textContent = e.status === 401 ? "Incorrect username or password." : e.message;
+            password.select();
         }
+        setPending(false);
     });
 })();

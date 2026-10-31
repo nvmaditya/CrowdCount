@@ -6,61 +6,57 @@
         <title>CrowdCount · Sign in</title>
         <link rel="icon" href="favicon.svg" type="image/svg+xml" />
         <script src="assets/js/theme-init.js"></script>
-        <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css" />
-        <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css" />
-        <link rel="stylesheet" href="assets/css/theme.css" />
+        <link rel="stylesheet" href="assets/css/tokens.css" />
+        <link rel="stylesheet" href="assets/css/kit.css" />
+        <link rel="stylesheet" href="assets/css/app.css" />
     </head>
     <body>
-        <main class="cc-auth">
-            <div class="cc-auth-card">
-                <div class="d-flex align-items-center justify-content-between mb-4">
-                    <a class="cc-brand" href="./"><img src="favicon.svg" class="cc-logo" alt="" />CrowdCount</a>
-                    <button class="btn btn-sm btn-outline-secondary" data-cc-theme-toggle></button>
+        <main class="signin">
+            <div class="signin-col">
+                <div class="signin-brand">
+                    <span id="brand-logo" class="signin-logo"></span>
+                    <span class="signin-brand-name">CrowdCount</span>
                 </div>
-                <div class="cc-card">
-                    <div class="cc-card-body p-4">
-                        <h1 class="h4 mb-1">Sign in</h1>
-                        <p class="cc-muted cc-small mb-4">Admins manage zones, thresholds, cameras and users.</p>
-                        <div id="message" role="alert"></div>
-                        <form id="login-form" novalidate>
-                            <div class="mb-3">
-                                <label for="username" class="form-label cc-small fw-semibold">Username</label>
-                                <input id="username" class="form-control" autocomplete="username" required autofocus />
+
+                <div class="login-card-inner">
+                    <h1 class="login-title">Sign in</h1>
+                    <p class="login-sub">Admins manage zones, alert rules and users.</p>
+                    <form id="login-form" novalidate>
+                        <div class="login-field">
+                            <label for="username">Username</label>
+                            <input id="username" class="login-input" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
+                        </div>
+                        <div class="login-field">
+                            <label for="password">Password</label>
+                            <div class="signin-pw">
+                                <input id="password" class="login-input" type="password" autocomplete="current-password" required />
+                                <button type="button" id="toggle-password" class="ui-btn v-ghost s-icon signin-pw-toggle" aria-label="Show password"></button>
                             </div>
-                            <div class="mb-3">
-                                <label for="password" class="form-label cc-small fw-semibold">Password</label>
-                                <div class="input-group">
-                                    <input id="password" type="password" class="form-control" autocomplete="current-password" required />
-                                    <button class="btn btn-outline-secondary" type="button" id="toggle-password" aria-label="Show password">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="form-check mb-4">
-                                <input class="form-check-input" type="checkbox" id="remember" />
-                                <label class="form-check-label cc-small" for="remember">Keep me signed in on this device</label>
-                            </div>
-                            <button type="submit" class="btn btn-primary w-100" id="submit">
-                                <span class="spinner-border spinner-border-sm me-2 d-none" id="spinner" aria-hidden="true"></span>
-                                Sign in
-                            </button>
-                        </form>
-                    </div>
+                        </div>
+                        <label class="signin-remember">
+                            <input type="checkbox" id="remember" />
+                            Keep me signed in on this device
+                        </label>
+                        <p id="message" class="signin-message" role="alert"></p>
+                        <button type="submit" id="submit" class="ui-btn v-default s-default login-full">Sign in</button>
+                    </form>
                 </div>
-                <details class="mt-3 cc-muted cc-small">
+
+                <details class="signin-help">
                     <summary>First time here?</summary>
-                    <p class="mt-2 mb-1">
-                        On first start CrowdCount creates an <span class="cc-code">admin</span> account and prints its
+                    <p>
+                        On first start CrowdCount creates an <span class="code">admin</span> account and prints its
                         password once in the server log. To choose it yourself, set
-                        <span class="cc-code">CROWDCOUNT_ADMIN_PASSWORD</span> before the first start.
+                        <span class="code">CROWDCOUNT_ADMIN_PASSWORD</span> before the first start.
                     </p>
-                    <p class="mb-0">Locked out? Run <span class="cc-code">crowdcount admin reset-password</span>.</p>
+                    <p>Locked out? Run <span class="code">crowdcount admin reset-password</span>.</p>
                 </details>
-                <p class="text-center mt-4 mb-0 cc-small"><a href="./"><i class="bi bi-arrow-left"></i> Back to the dashboard</a></p>
+
+                <p class="login-foot"><a href="./">Continue to the live dashboard</a> without signing in</p>
             </div>
         </main>
-        <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
-        <script src="assets/js/common.js"></script>
+        <script src="assets/js/icons.js"></script>
+        <script src="assets/js/core.js"></script>
         <script src="assets/js/login.js"></script>
     </body>
 </html>

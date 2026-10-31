@@ -1,0 +1,102 @@
+/* ============================================================================
+   CrowdCount app styles: page base, shared feedback components and page
+   layouts. Colours come only from the tokens in tokens.css.
+   ============================================================================ */
+
+/* ---------- Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--foreground);
+  background: var(--background);
+  -webkit-font-smoothing: antialiased;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+button, input, select, textarea { font-family: inherit; }
+a { color: var(--foreground); }
+a:hover { color: var(--muted-foreground); }
+a:active, button:active { opacity: .7; }
+::selection { background: var(--selection); color: var(--selection-foreground); }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+.spin { animation: cc-spin 1s linear infinite; }
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+
+/* ---------- Toasts (CC.toast) ---------- */
+.toasts {
+  position: fixed; top: 16px; right: 16px; z-index: 100;
+  display: flex; flex-direction: column; gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 12px 12px 14px;
+  background: var(--popover); color: var(--popover-foreground);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+  font-size: 13px; line-height: 1.45;
+  pointer-events: auto;
+}
+.toast-icon { flex-shrink: 0; margin-top: 1px; color: var(--ok); }
+.toast.is-warn .toast-icon { color: var(--warn-fg); }
+.toast.is-error .toast-icon { color: var(--destructive); }
+.toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.toast-close {
+  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; margin: -1px -2px 0 0;
+  background: none; border: 0; border-radius: var(--radius-sm);
+  color: var(--muted-foreground); cursor: pointer;
+}
+.toast-close:hover { background: var(--accent); color: var(--foreground); }
+
+/* ---------- Empty state (CC.emptyState) ---------- */
+.empty {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 32px 16px; text-align: center; color: var(--muted-foreground); font-size: 13px;
+}
+.empty-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; margin-bottom: 6px;
+  border-radius: var(--radius-lg); background: var(--muted); color: var(--muted-foreground);
+}
+.empty-title { font-size: 14px; font-weight: 500; color: var(--foreground); }
+.empty-hint { margin: 0; max-width: 42ch; line-height: 1.5; }
+.empty .code { margin-top: 6px; color: var(--foreground); }
+
+/* ---------- Sign in ---------- */
+.signin {
+  min-height: 100vh; padding: 48px 16px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+}
+.signin-col { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 24px; }
+.signin-brand { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.signin-logo { display: block; width: 40px; height: 40px; }
+.signin-logo svg { display: block; }
+.signin-brand-name { font-weight: 600; font-size: 15px; }
+.signin-pw { position: relative; }
+.signin-pw .login-input { padding-right: 40px; }
+.signin-pw-toggle {
+  position: absolute; top: 2px; right: 2px;
+  width: 32px; height: 32px; color: var(--muted-foreground);
+}
+.signin-pw-toggle:hover { color: var(--foreground); }
+.signin-remember {
+  display: flex; align-items: center; gap: 8px; margin: 4px 0 20px;
+  font-size: 14px; cursor: pointer;
+}
+.signin-remember input { width: 16px; height: 16px; margin: 0; accent-color: var(--primary); cursor: pointer; }
+.signin-message { margin: -4px 0 16px; font-size: 14px; color: var(--destructive); }
+.signin-message:empty { display: none; }
+.signin-help { font-size: 13px; color: var(--muted-foreground); line-height: 1.55; }
+.signin-help summary { cursor: pointer; color: var(--foreground); font-weight: 500; }
+.signin-help p { margin: 0; }
+.signin-help p:first-of-type { margin: 10px 0 6px; }
+.signin .login-foot { margin: 0; }

@@ -42,32 +42,36 @@ class ZoneEditor {
         return this.image !== null;
     }
 
-    /** Fetch the latest raw frame. Returns false (and shows guidance) if there isn't one. */
+    /**
+     * Fetch the latest raw frame. Never rejects: returns false when there is no new frame, keeping the frame
+     * already shown (and any shape being drawn on it), or showing how to get one when there is none.
+     */
     async loadFrame() {
-        let resp;
-        try {
-            resp = await fetch(`/api/snapshot?t=${Date.now()}`);
-        } catch (e) {
-            resp = null;
-        }
         let image = null;
-        if (resp && resp.ok) {
-            const url = URL.createObjectURL(await resp.blob());
-            image = await new Promise((resolve) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = () => resolve(null);
-                img.src = url;
-            });
-            URL.revokeObjectURL(url);
+        try {
+            const resp = await fetch(`/api/snapshot?t=${Date.now()}`);
+            if (resp.ok) image = await ZoneEditor._decode(await resp.blob());
+        } catch (e) {
+            image = null; // the server is unreachable, or the download broke off
         }
         if (!image) {
-            this.clearFrame();
+            if (!this.image) this.clearFrame();
             return false;
         }
         this.image = image;
         this._mount();
         return true;
+    }
+
+    /** The image in a JPEG blob, or null when it doesn't decode. */
+    static _decode(blob) {
+        const url = URL.createObjectURL(blob);
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => resolve(null);
+            img.src = url;
+        }).finally(() => URL.revokeObjectURL(url));
     }
 
     /** Drop the frame (and any shape in progress) and show how to get one. */

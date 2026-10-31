@@ -12,6 +12,7 @@
         ["Pink", [236, 72, 153]], ["Green", [34, 197, 94]], ["Sky", [14, 165, 233]],
     ];
     const PENDING_MS = 5000;
+    const FRAME_RETRY_MS = 5000; // after a failed automatic frame fetch
 
     const admin = CC.isAdmin();
 
@@ -27,6 +28,7 @@
         color: PALETTE[0][1],
         hover: null, // the zone under the pointer (or focus) in the list
         frameRun: undefined, // the detector run whose frame was fetched automatically; undefined before the first look
+        frameRetryAt: 0, // when a failed automatic fetch for the same run may be tried again
         loadingFrame: false,
     };
 
@@ -109,20 +111,34 @@
         syncCanvas();
     }
 
-    /** Fetch the latest frame (the "Grab a fresh frame" button, or once per detector run on its own). */
-    async function grabFrame() {
-        if (ui.loadingFrame) return;
+    /**
+     * Fetch the latest frame (the "Grab a fresh frame" button, or on its own: see autoFrame). Never rejects,
+     * so the un-awaited automatic call can't leave an unhandled rejection; resolves true when a frame loaded.
+     */
+    async function grabFrame({ asked = false } = {}) {
+        if (ui.loadingFrame) return false;
         ui.loadingFrame = true;
-        $("#zone-grab svg")?.classList.add("spin");
-        await editor.loadFrame();
-        ui.loadingFrame = false;
-        $("#zone-grab svg")?.classList.remove("spin");
-        renderToolbar();
+        const had = editor.hasFrame;
+        const spinner = $("#zone-grab svg");
+        spinner?.classList.add("spin");
+        let ok = false;
+        try {
+            ok = await editor.loadFrame();
+        } catch (e) {
+            ok = false; // loadFrame handles its own failures; this only keeps the flag from sticking
+        } finally {
+            ui.loadingFrame = false;
+            spinner?.classList.remove("spin");
+            renderToolbar();
+        }
+        if (asked && had && !ok) toast("Couldn't grab a new frame. Showing the last one.", "warn");
+        return ok;
     }
 
     /**
      * Load the frame without being asked once the detector has published one (fetching earlier would only
-     * 404), and again for a new run while no frame is shown. Before any run, show how to start one.
+     * 404), and again for a new run while no frame is shown, retrying every FRAME_RETRY_MS if a fetch fails.
+     * Before any run, show how to start one.
      */
     function autoFrame() {
         const st = ui.connected && ui.summary?.last_update ? ui.summary.status : null;
@@ -135,8 +151,10 @@
             }
             return;
         }
-        if (editor.hasFrame || ui.loadingFrame || run === ui.frameRun) return;
+        if (editor.hasFrame || ui.loadingFrame) return;
+        if (run === ui.frameRun && Date.now() < ui.frameRetryAt) return;
         ui.frameRun = run;
+        ui.frameRetryAt = Date.now() + FRAME_RETRY_MS;
         grabFrame();
     }
 
@@ -498,7 +516,7 @@
         $("#zone-grab").append(icon("rotate-ccw"));
         $("#zone-grab").addEventListener("click", () => {
             ui.frameRun = null; // asked for: a later run may fetch again on its own
-            grabFrame();
+            grabFrame({ asked: true });
         });
         renderToolbar();
     } else {

@@ -1,5 +1,13 @@
 # YOLOv8 People Detection and Zone Management System — Code-Grounded Technical Extraction
 
+> **Version note.** This extraction was written against CrowdCount **1.x**
+> (commit [`9371787`](https://github.com/nvmaditya/CrowdCount/tree/9371787)); file paths and
+> line references point at that tree. CrowdCount 2.0 reorganised the code into the
+> `crowdcount` package and changed some behaviour that matters for a paper: ByteTrack is now
+> the default tracker (1.x ran BoT-SORT), history is sampled at 1 Hz (1.x recorded every
+> frame), and the heatmap accumulates visits (1.x marked coverage only). See
+> [`docs/architecture.md`](../docs/architecture.md) and [`CHANGELOG.md`](../CHANGELOG.md).
+
 Date: 2026-04-19  
 Context: This technical extraction is designed to be shareable even without the source repository.
 

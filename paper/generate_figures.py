@@ -22,14 +22,14 @@ import argparse
 import csv
 import json
 from collections import Counter, defaultdict
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any
 
 import cv2
 import numpy as np
-
 
 try:
     from diagrams_svg import (  # type: ignore
@@ -45,11 +45,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _read_json(path: Path) -> Any:
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def _try_parse_datetime(value: Any) -> Optional[datetime]:
+def _try_parse_datetime(value: Any) -> datetime | None:
     if value is None:
         return None
     if isinstance(value, datetime):
@@ -80,27 +80,27 @@ def _polygon_area_px2(points: Sequence[Sequence[float]]) -> float:
     return float(0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
 
 
-def _polygon_centroid(points: Sequence[Sequence[float]]) -> Tuple[int, int]:
+def _polygon_centroid(points: Sequence[Sequence[float]]) -> tuple[int, int]:
     pts = np.asarray(points, dtype=np.float64)
     if pts.size == 0:
         return (0, 0)
     centroid = pts.mean(axis=0)
-    return (int(round(float(centroid[0]))), int(round(float(centroid[1]))))
+    return (round(float(centroid[0])), round(float(centroid[1])))
 
 
 @dataclass(frozen=True)
 class Zone:
     name: str
-    points: List[List[int]]
-    color_bgr: Tuple[int, int, int]
+    points: list[list[int]]
+    color_bgr: tuple[int, int, int]
     enabled: bool = True
 
 
-def _load_zones(zones_path: Path) -> List[Zone]:
+def _load_zones(zones_path: Path) -> list[Zone]:
     data = _read_json(zones_path)
     zones_raw = data.get("zones", []) if isinstance(data, dict) else []
 
-    zones: List[Zone] = []
+    zones: list[Zone] = []
     for z in zones_raw:
         if not isinstance(z, dict):
             continue
@@ -108,7 +108,7 @@ def _load_zones(zones_path: Path) -> List[Zone]:
         points = z.get("points")
         if not isinstance(points, list):
             continue
-        pts: List[List[int]] = []
+        pts: list[list[int]] = []
         for p in points:
             if (
                 isinstance(p, (list, tuple))
@@ -124,7 +124,8 @@ def _load_zones(zones_path: Path) -> List[Zone]:
             and len(color) == 3
             and all(isinstance(c, (int, float)) for c in color)
         ):
-            color_bgr = (int(color[0]), int(color[1]), int(color[2]))
+            # zones.json colours are RGB (CrowdCount 2.x); OpenCV draws BGR.
+            color_bgr = (int(color[2]), int(color[1]), int(color[0]))
         else:
             color_bgr = (0, 255, 0)
 
@@ -162,8 +163,8 @@ def render_zone_overlay(
 ) -> None:
     _ensure_dir(out_png.parent)
 
-    frame: Optional[np.ndarray] = None
-    if video_path.exists():
+    frame: np.ndarray | None = None
+    if video_path.is_file():
         cap = cv2.VideoCapture(str(video_path))
         try:
             ok, first = cap.read()
@@ -233,7 +234,7 @@ def write_activity_log_exports(
     logs = data.get("logs", []) if isinstance(data, dict) else []
 
     counts = Counter()
-    buckets: Dict[Tuple[datetime, str, str], int] = defaultdict(int)
+    buckets: dict[tuple[datetime, str, str], int] = defaultdict(int)
 
     for item in logs:
         if not isinstance(item, dict):
@@ -298,7 +299,7 @@ def write_alert_history_exports(
     _ensure_dir(out_csv.parent)
     _ensure_dir(out_fig_dir)
 
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
 
     if alerts_history_path.exists():
         data = _read_json(alerts_history_path)
@@ -331,7 +332,7 @@ def write_alert_history_exports(
         return
 
     # Simple timeline plot for actual_count
-    parsed: List[Tuple[datetime, int, str]] = []
+    parsed: list[tuple[datetime, int, str]] = []
     for r in rows:
         ts = _try_parse_datetime(r.get("timestamp"))
         actual = r.get("actual_count")
@@ -363,13 +364,17 @@ def main() -> int:
     parser.add_argument(
         "--video",
         type=str,
-        default=str(REPO_ROOT / "Camera-Video.mp4"),
-        help="Video file used for zone overlay (default: Camera-Video.mp4)",
+        default=None,
+        help="Video whose first frame is the zone-overlay backdrop (default: blank canvas)",
     )
     parser.add_argument(
         "--zones",
         type=str,
-        default=str(REPO_ROOT / "zones.json"),
+        default=str(
+            REPO_ROOT / "zones.json"
+            if (REPO_ROOT / "zones.json").exists()
+            else REPO_ROOT / "examples" / "zones.example.json"
+        ),
         help="Zones JSON path (default: zones.json)",
     )
     parser.add_argument(
@@ -407,7 +412,7 @@ def main() -> int:
     zones = _load_zones(Path(args.zones))
 
     write_zone_areas(zones, data_dir / "zone_areas.csv")
-    render_zone_overlay(zones, Path(args.video), fig_dir / "zones_overlay.png")
+    render_zone_overlay(zones, Path(args.video) if args.video else Path(), fig_dir / "zones_overlay.png")
 
     write_activity_log_exports(
         Path(args.activity_logs),

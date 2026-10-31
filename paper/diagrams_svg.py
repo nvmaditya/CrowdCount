@@ -13,8 +13,8 @@ Run via:
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, List, Sequence, Tuple
 
 
 def _xml_escape(value: str) -> str:
@@ -39,7 +39,7 @@ def _write_svg(out_svg: Path, lines: Iterable[str]) -> None:
             f.write("\n")
 
 
-def _svg_header(width: int, height: int) -> List[str]:
+def _svg_header(width: int, height: int) -> list[str]:
     return [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
@@ -62,7 +62,7 @@ def _svg_header(width: int, height: int) -> List[str]:
     ]
 
 
-def _svg_footer() -> List[str]:
+def _svg_footer() -> list[str]:
     return ["</svg>"]
 
 
@@ -74,8 +74,8 @@ def _svg_text(x: int, y: int, text: str, cls: str, anchor: str = "middle") -> st
     return f'<text class="{cls}" text-anchor="{anchor}" x="{x}" y="{y}">{_xml_escape(text)}</text>'
 
 
-def _svg_box(x: int, y: int, w: int, h: int, title: str, lines: Sequence[str]) -> List[str]:
-    out: List[str] = []
+def _svg_box(x: int, y: int, w: int, h: int, title: str, lines: Sequence[str]) -> list[str]:
+    out: list[str] = []
     out.append(_svg_rect("box", x, y, w, h, rx=14))
     cx = x + w // 2
     out.append(_svg_text(cx, y + 28, title, "boxtitle"))
@@ -86,8 +86,8 @@ def _svg_box(x: int, y: int, w: int, h: int, title: str, lines: Sequence[str]) -
     return out
 
 
-def _svg_group_box(x: int, y: int, w: int, h: int, title: str, lines: Sequence[str]) -> List[str]:
-    out: List[str] = []
+def _svg_group_box(x: int, y: int, w: int, h: int, title: str, lines: Sequence[str]) -> list[str]:
+    out: list[str] = []
     out.append(_svg_rect("group", x, y, w, h, rx=18))
     cx = x + w // 2
     out.append(_svg_text(cx, y + 32, title, "boxtitle"))
@@ -100,13 +100,10 @@ def _svg_group_box(x: int, y: int, w: int, h: int, title: str, lines: Sequence[s
 
 def _svg_arrow_line(x1: int, y1: int, x2: int, y2: int, dashed: bool = False) -> str:
     cls = "arrow dashed" if dashed else "arrow"
-    return (
-        f'<line class="{cls}" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
-        'marker-end="url(#arrow)" />'
-    )
+    return f'<line class="{cls}" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" marker-end="url(#arrow)" />'
 
 
-def _svg_arrow_path(points: Sequence[Tuple[int, int]], dashed: bool = False) -> str:
+def _svg_arrow_path(points: Sequence[tuple[int, int]], dashed: bool = False) -> str:
     cls = "arrow dashed" if dashed else "arrow"
     d = " ".join([f"{'M' if i == 0 else 'L'} {x} {y}" for i, (x, y) in enumerate(points)])
     return f'<path class="{cls}" d="{d}" marker-end="url(#arrow)" />'
@@ -114,10 +111,18 @@ def _svg_arrow_path(points: Sequence[Tuple[int, int]], dashed: bool = False) -> 
 
 def write_system_architecture_svg(out_svg: Path) -> None:
     width, height = 1800, 760
-    svg: List[str] = []
+    svg: list[str] = []
     svg.extend(_svg_header(width, height))
     svg.append(_svg_text(30, 42, "System Architecture (Runtime Data Flow)", "title", anchor="start"))
-    svg.append(_svg_text(30, 68, "Generated from repo structure: detector → shared_state → API → frontend", "small", anchor="start"))
+    svg.append(
+        _svg_text(
+            30,
+            68,
+            "CrowdCount 2.x: pipeline → SharedState → FastAPI → web UI (one process)",
+            "small",
+            anchor="start",
+        )
+    )
 
     # Main pipeline blocks
     video = (60, 140, 220, 90)
@@ -128,30 +133,36 @@ def write_system_architecture_svg(out_svg: Path) -> None:
     dashboard = (1520, 90, 240, 90)
     adminui = (1520, 220, 240, 90)
 
-    svg.extend(_svg_box(*video, "Video Source", ["webcam / file"]))
-    svg.extend(_svg_box(*opencv, "OpenCV", ["cv2.VideoCapture"]))
+    svg.extend(_svg_box(*video, "Video Source", ["webcam / file / RTSP"]))
+    svg.extend(_svg_box(*opencv, "VideoSource", ["cv2.VideoCapture", "loop / reconnect"]))
     svg.extend(
         _svg_box(
             *detector,
-            "Detector (Integrated)",
+            "Pipeline + PersonDetector",
             [
-                "YOLOv8 model.track + BoT-SORT",
-                "filters + zone assignment",
-                "trails + OpenCV overlays",
+                "YOLOv8 track + ByteTrack",
+                "filters + ZoneTracker",
+                "trails + overlays + metrics",
             ],
         )
     )
-    svg.extend(_svg_box(*state, "SharedState", ["RLock-protected snapshot", "history + heatmap"]))
-    svg.extend(_svg_box(*api, "FastAPI Backend", ["/count /zones /history", "/heatmap /alerts", "/admin/* + exports"]))
-    svg.extend(_svg_box(*dashboard, "Dashboard UI", ["polling + Chart.js", "renders heatmap PNG"]))
-    svg.extend(_svg_box(*adminui, "Admin UI", ["Bearer JWT", "CRUD zones/users/thresholds"]))
+    svg.extend(_svg_box(*state, "SharedState", ["counts + 1 Hz history", "heatmap + frames + alerts"]))
+    svg.extend(
+        _svg_box(
+            *api,
+            "FastAPI Backend",
+            ["/api/summary /api/history", "/api/stream (MJPEG)", "/api/admin/* + exports"],
+        )
+    )
+    svg.extend(_svg_box(*dashboard, "Dashboard UI", ["1 s polling + Chart.js", "live MJPEG + heatmap"]))
+    svg.extend(_svg_box(*adminui, "Admin UI", ["Bearer JWT", "draw zones, thresholds, users"]))
 
     # Persistence block
     persist = (580, 470, 1180, 200)
     svg.extend(
         _svg_group_box(
             *persist,
-            "JSON Persistence (repo data/)",
+            "JSON Persistence (data dir)",
             [
                 "zones.json",
                 "data/config.json + data/users.json",
@@ -161,19 +172,19 @@ def write_system_architecture_svg(out_svg: Path) -> None:
     )
 
     # Helpers
-    def right_mid(b: Tuple[int, int, int, int]) -> Tuple[int, int]:
+    def right_mid(b: tuple[int, int, int, int]) -> tuple[int, int]:
         x, y, w, h = b
         return (x + w, y + h // 2)
 
-    def left_mid(b: Tuple[int, int, int, int]) -> Tuple[int, int]:
+    def left_mid(b: tuple[int, int, int, int]) -> tuple[int, int]:
         x, y, _, h = b
         return (x, y + h // 2)
 
-    def bottom_mid(b: Tuple[int, int, int, int]) -> Tuple[int, int]:
+    def bottom_mid(b: tuple[int, int, int, int]) -> tuple[int, int]:
         x, y, w, h = b
         return (x + w // 2, y + h)
 
-    def top_mid(b: Tuple[int, int, int, int]) -> Tuple[int, int]:
+    def top_mid(b: tuple[int, int, int, int]) -> tuple[int, int]:
         x, y, w, _ = b
         return (x + w // 2, y)
 
@@ -191,7 +202,7 @@ def write_system_architecture_svg(out_svg: Path) -> None:
     x1, y1 = right_mid(detector)
     x2, y2 = left_mid(state)
     svg.append(_svg_arrow_line(x1, y1, x2, y2))
-    svg.append(_svg_text((x1 + x2) // 2, y1 - 10, "update_counts", "small"))
+    svg.append(_svg_text((x1 + x2) // 2, y1 - 10, "publish()", "small"))
 
     # API reads SharedState
     x1, y1 = left_mid(api)
@@ -228,23 +239,70 @@ def write_system_architecture_svg(out_svg: Path) -> None:
 
 def write_frame_processing_flowchart_svg(out_svg: Path) -> None:
     width, height = 1400, 1500
-    svg: List[str] = []
+    svg: list[str] = []
     svg.extend(_svg_header(width, height))
     svg.append(_svg_text(30, 42, "Frame Processing Flow (Detector Loop)", "title", anchor="start"))
-    svg.append(_svg_text(30, 68, "Generated from integrated_detector.py process_video/detect_people", "small", anchor="start"))
+    svg.append(
+        _svg_text(
+            30,
+            68,
+            "CrowdCount 2.x: crowdcount/pipeline.py Pipeline.run()",
+            "small",
+            anchor="start",
+        )
+    )
 
     x, w = 250, 900
 
     steps = [
-        (100, 110, "Initialize", ["load zones.json, init YOLO, open VideoCapture"]),
-        (240, 90, "Read frame", ["cap.read(); frames_read += 1"]),
-        (360, 120, "Handle end-of-video", ["if ret is False:", "display: seek to frame 0", "no-display: exit"]),
-        (520, 120, "Frame skip / speed control", ["frame_skip = max(1, int(speed))", "skip when frames_read % frame_skip != 0"]),
-        (680, 120, "YOLOv8 tracking", ["model.track(..., persist=True,", "classes=[0], tracker='botsort.yaml')"]),
-        (840, 120, "Parse + filter detections", ["boxes/id/conf extraction", "filter by conf, min area, aspect ratio"]),
-        (1000, 120, "Zone membership + trails", ["center point", "pointPolygonTest >= 0", "track_history capped at 30"]),
-        (1160, 120, "Update stats + publish", ["zone_current_count + zone_visitors", "shared_state.update_counts()", "history + heatmap accumulate"]),
-        (1320, 120, "Render (optional) + quit handling", ["draw boxes/zones/trails", "imshow unless --no-display", "break on 'q'"]),
+        (100, 110, "Initialize", ["validate zones, open source, load YOLO"]),
+        (240, 90, "Read frame", ["VideoSource.read(); frames_read += 1"]),
+        (
+            360,
+            120,
+            "Handle end-of-video",
+            ["file: loop (--loop) or stop", "stream: reconnect with backoff"],
+        ),
+        (
+            520,
+            120,
+            "Stride, pacing, zone reload",
+            ["process every Nth frame (--stride)", "reload zones.json on change"],
+        ),
+        (
+            680,
+            120,
+            "YOLOv8 tracking",
+            ["model.track(..., persist=True,", "classes=[0], tracker='bytetrack.yaml')"],
+        ),
+        (
+            840,
+            120,
+            "Parse + filter detections",
+            ["boxes/id/conf extraction", "filter by conf, min area, aspect ratio"],
+        ),
+        (
+            1000,
+            120,
+            "Zone membership + trails",
+            ["box centre", "point-in-polygon (edges inclusive)", "trails capped at 30"],
+        ),
+        (
+            1160,
+            120,
+            "Update stats + publish",
+            [
+                "occupancy + unique track IDs",
+                "SharedState.publish()",
+                "1 Hz history, heatmap, alerts",
+            ],
+        ),
+        (
+            1320,
+            120,
+            "Render (optional) + quit handling",
+            ["draw boxes/zones/trails", "MJPEG frame; window if --display", "stop on q / Ctrl+C"],
+        ),
     ]
 
     for y, h, title, lines in steps:

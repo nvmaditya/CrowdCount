@@ -16,7 +16,7 @@ Optional:
   python paper/capture_ui_screenshots.py --port 8080 --start-server
 
 Notes:
-- Screenshots are taken from the static pages served by FastAPI.
+- Screenshots are taken from the web UI served by `crowdcount serve` / `crowdcount run`.
 - The pages will render even without the detector running; values may show 0.
 """
 
@@ -28,7 +28,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PORT = 8080
@@ -117,8 +116,8 @@ def main() -> int:
 
     port = int(args.port)
     base_candidates = [
-        f"http://localhost:{port}/static",
-        f"http://127.0.0.1:{port}/static",
+        f"http://localhost:{port}",
+        f"http://127.0.0.1:{port}",
     ]
     out_dir = Path(args.out_dir)
 
@@ -129,8 +128,9 @@ def main() -> int:
             # Bind to loopback only for reliable local screenshotting.
             cmd = [
                 sys.executable,
-                str(REPO_ROOT / "run_app.py"),
-                "--server-only",
+                "-m",
+                "crowdcount",
+                "serve",
                 "--host",
                 "127.0.0.1",
                 "--port",
@@ -138,7 +138,7 @@ def main() -> int:
             ]
             server_proc = subprocess.Popen(cmd, cwd=str(REPO_ROOT))
 
-        # Wait for static mount to respond (try localhost first, then 127.0.0.1)
+        # Wait for the web UI to respond (try localhost first, then 127.0.0.1)
         base = None
         for candidate in base_candidates:
             if _wait_for_url(f"{candidate}/index.html", timeout_s=45.0):
@@ -149,7 +149,7 @@ def main() -> int:
             raise RuntimeError(
                 "Server not reachable at any of:\n"
                 + "\n".join(f"- {c}/index.html" for c in base_candidates)
-                + "\n\nRun `python run_app.py --server-only --port 8080` (or pass --start-server)."
+                + "\n\nRun `crowdcount run` or `crowdcount serve --port 8080` (or pass --start-server)."
             )
 
         _capture(f"{base}/index.html", out_dir / "dashboard_main.png")

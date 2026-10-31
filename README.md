@@ -31,31 +31,36 @@ It is fully local, open source, and built to be read and extended.
 - **Detection and tracking.** YOLO26 (`n` to `x`) finds people by default; YOLO11, YOLOv8 or
   other COCO-trained Ultralytics weights also work. ByteTrack, or BoT-SORT for moving cameras,
   gives each person a persistent ID.
-- **Polygon zones.** Draw them on the live frame in the browser or in an OpenCV editor.
+- **Polygon zones.** Draw them on the live frame in the Zones page or in an OpenCV editor.
   Each zone gets live occupancy and a unique-track count; zones may overlap. Edits apply to the
   running detector within a second, with no restart.
-- **Live dashboard.** Annotated MJPEG video, KPIs, per-zone bars against thresholds, a
-  10-minute history chart and a cumulative heatmap over the scene. Light and dark themes, and
-  it works offline (no CDNs).
-- **Alerts.** A total threshold and per-zone thresholds. Each breach is recorded once, shown
-  as a banner, and kept in an acknowledgeable alert history.
-- **Administration.** Accounts with admin and user roles, saved camera sources, and an audit
-  log of every sign-in and change, exportable as CSV or PDF.
+- **Live dashboard.** Annotated MJPEG video, stat cards, per-zone bars against their limits,
+  a people-over-time chart (10 minutes to an hour) and a cumulative heatmap over the scene.
+  Five pages (Live, Alerts, Zones, Settings, Sign in), light and dark themes, and it works
+  offline (no CDNs).
+- **Alerts with early warning.** An alert rule per scope, Total occupancy or a zone: a limit, an
+  early-warning percentage (80% by default), an on/off switch and an optional banner. Counts
+  near the limit raise a warning before it is crossed. Alerts are recorded once, and admins
+  acknowledge them from the banner or the alert history. They clear 5 seconds after the count
+  drops, so a count hovering at a limit doesn't flap.
+- **Administration.** Accounts with admin and user roles (anyone can view Live, Alerts and
+  Zones), saved video sources in Settings, and an activity log of every sign-in and change,
+  exportable as CSV or PDF.
 - **Exports.** Per-second history as CSV, a PDF occupancy report, and per-frame metrics
   (timing, confidences, zone time series, track lifetimes) for analysis.
 - **Runs anywhere.** RTSP/HTTP streams (with reconnects) and video files. CPU, Apple silicon
   (MPS) or NVIDIA (CUDA), chosen automatically. Docker image included.
 - **Built to last.** One CLI, layered config (`crowdcount.toml`, env, flags), readable errors
-  with exit codes, 180+ tests, and CI on Python 3.10 to 3.14.
+  with exit codes, 250+ tests, and CI on Python 3.10 to 3.14.
 
 <p align="center">
-  <img src="docs/images/hero.jpg" width="820" alt="CrowdCount dashboard: a threshold alert banner, live counts, and the annotated video next to per-zone occupancy against thresholds">
-  <br><sub>The dashboard during a zone-threshold alert.</sub>
+  <img src="docs/images/hero.jpg" width="820" alt="The CrowdCount Live page: an alert banner above four stat cards, the annotated camera view, and zones listed against their limits">
+  <br><sub>The Live page while a zone is over its limit.</sub>
 </p>
 
 <p align="center">
-  <img src="docs/images/zone-editor.jpg" width="820" alt="Admin panel zone editor: drawing a new polygon zone on the live camera frame, with existing zones listed">
-  <br><sub>Drawing a zone on the live frame in the admin panel.</sub>
+  <img src="docs/images/zone-editor.jpg" width="820" alt="The Zones page: drawing a new polygon zone on the live camera frame, with the existing zones listed beside it">
+  <br><sub>Drawing a zone on the live frame on the Zones page.</sub>
 </p>
 
 ## Quickstart
@@ -72,7 +77,7 @@ crowdcount demo
 
 Open **http://localhost:8080**. The demo runs on OpenCV's public `vtest.avi` pedestrian clip,
 with zones drawn for it. The terminal prints a one-time password for the `admin` account. Sign
-in to draw zones and set thresholds.
+in to draw zones and set alert rules.
 
 > On Windows, activate with `.venv\Scripts\activate` instead of `source .venv/bin/activate`.
 > With `make` installed, `make demo` does the last three steps. On Linux without a GPU, run
@@ -115,7 +120,7 @@ flowchart LR
     zon --> st[("Live state<br/>counts · 1 Hz history<br/>heatmap · alerts")]
     st --> api["FastAPI"]
     api --> ui["Dashboard<br/>MJPEG · charts · heatmap"]
-    api --> adm["Admin panel<br/>zones · thresholds · users"]
+    api --> adm["Alerts · Zones · Settings<br/>rules · zones · sources · users"]
     adm -. "edits zones.json<br/>(hot reload)" .-> zon
     st -. "alert records" .-> db[("data/ JSON<br/>users · config · audit log")]
 ```
@@ -144,8 +149,8 @@ host = "0.0.0.0"
 ```
 
 Secrets and paths go in the environment or `.env` (see [`.env.example`](.env.example)):
-`CROWDCOUNT_ADMIN_PASSWORD`, `CROWDCOUNT_JWT_SECRET`, `CROWDCOUNT_DATA_DIR`. Thresholds, cameras
-and users are managed in the admin panel. The full reference is in
+`CROWDCOUNT_ADMIN_PASSWORD`, `CROWDCOUNT_JWT_SECRET`, `CROWDCOUNT_DATA_DIR`. Alert rules, zones,
+video sources and users are managed in the app (Alerts, Zones and Settings). The full reference is in
 [docs/configuration.md](docs/configuration.md).
 
 ## Performance
@@ -175,9 +180,9 @@ truth, so it reports no accuracy figures of its own (see the roadmap).
 | --- | --- |
 | [Architecture](docs/architecture.md) | Modules, the per-frame pipeline, live and persistent state, design choices |
 | [Configuration](docs/configuration.md) | Every command, flag, config key and environment variable; exit codes; metrics files |
-| [Zones](docs/zones.md) | Drawing zones, file format, counting rules, thresholds |
+| [Zones](docs/zones.md) | Drawing zones, file format, counting rules, alert rules |
 | [Detection and tracking](docs/tracking.md) | ByteTrack vs BoT-SORT, tuning, filters, model choice and benchmarks |
-| [Dashboard and admin](docs/dashboard.md) | First sign-in, roles, audit log, security model, upgrading from 1.x |
+| [Dashboard](docs/dashboard.md) | The five pages, alert levels, roles, activity log, first sign-in, security model, upgrading from 1.x |
 | [HTTP API](docs/api.md) | Endpoints, authentication, changes from 1.x |
 | [Deployment](docs/deployment.md) | Docker, compose, systemd, multiple cameras, reverse proxy |
 | [Troubleshooting](docs/troubleshooting.md) | Cameras, streams, models, counting and dashboard issues |
@@ -214,6 +219,6 @@ dashboard footer links to the source. See [LICENSE](LICENSE) for the full terms.
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (YOLO26, YOLO11, YOLOv8): detection models and tracker implementations
 - [ByteTrack](https://arxiv.org/abs/2110.06864) (Zhang et al., ECCV 2022) and [BoT-SORT](https://arxiv.org/abs/2206.14651) (Aharon et al., 2022)
 - [OpenCV](https://opencv.org/): video I/O and drawing; the demo uses its `vtest.avi` sample clip
-- [FastAPI](https://fastapi.tiangolo.com/), [Bootstrap](https://getbootstrap.com/), [Bootstrap Icons](https://icons.getbootstrap.com/), [Chart.js](https://www.chartjs.org/), [ReportLab](https://www.reportlab.com/)
+- [FastAPI](https://fastapi.tiangolo.com/), [Chart.js](https://www.chartjs.org/), [Geist](https://vercel.com/font) (fonts), [Lucide](https://lucide.dev/) (icons), [ReportLab](https://www.reportlab.com/)
 
 Built by [Aditya Khandelwal](https://github.com/nvmaditya).

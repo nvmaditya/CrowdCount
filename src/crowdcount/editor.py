@@ -1,7 +1,7 @@
 """Interactive OpenCV zone editor (``crowdcount zones edit``).
 
 Draw polygons on frames from a video file or stream. Changes are saved to the zones file,
-which a running detector picks up automatically. The admin panel offers the same in a
+which a running detector picks up automatically. The Zones page offers the same in a
 browser.
 """
 

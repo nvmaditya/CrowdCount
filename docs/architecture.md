@@ -24,8 +24,8 @@ flowchart LR
         api <--> store[("data/<br/>users · config<br/>activity log · alerts")]
         state -- "alert listener" --> store
     end
-    api -- "JSON polling · MJPEG" --> dash["Dashboard"]
-    api -- "Bearer JWT" --> admin["Admin panel"]
+    api -- "JSON polling · MJPEG" --> dash["Live · Alerts · Zones"]
+    api -- "Bearer JWT" --> admin["Settings · admin changes"]
 ```
 
 ## Modules
@@ -38,7 +38,7 @@ flowchart LR
 | `crowdcount.detector` | `PersonDetector`: Ultralytics YOLO tracking restricted to the person class, plus `DetectionFilter`. Ultralytics is imported lazily. |
 | `crowdcount.zones` | Zone model, validation, atomic save, point-in-polygon, `ZoneTracker` (occupancy + unique track IDs). No OpenCV or torch. |
 | `crowdcount.pipeline` | The frame loop: stride, pacing, zone hot-reload, trails, annotation, publishing, recording, metrics, preview window. |
-| `crowdcount.state` | `SharedState`: thread-safe live data, 1 Hz history, heatmap, latest frames, thresholds, edge-triggered alerts. |
+| `crowdcount.state` | `SharedState`: thread-safe live data, 1 Hz history, heatmap, latest frames, alert rules and levelled alerts with flap protection. |
 | `crowdcount.annotate` | Drawing helpers for annotated frames. |
 | `crowdcount.metrics` | `--metrics-out` CSV/JSON writer. |
 | `crowdcount.editor` | OpenCV zone editor (`crowdcount zones edit`). |
@@ -46,11 +46,11 @@ flowchart LR
 | `crowdcount.server.app` | `create_app()` factory: lifespan startup, security headers, routers, static UI. |
 | `crowdcount.server.api` | Public dashboard API under `/api`, MJPEG stream, exports, WebSocket. |
 | `crowdcount.server.admin` | `/api/auth/*` and `/api/admin/*`. |
-| `crowdcount.server.auth` | bcrypt passwords, PyJWT tokens with revocation, the user store, first-admin bootstrap. |
+| `crowdcount.server.auth` | bcrypt passwords, PyJWT tokens with revocation, the user store, first-admin creation. |
 | `crowdcount.server.audit` | Activity log and alert history. |
-| `crowdcount.server.config_store` | Thresholds, cameras and log retention (`data/config.json`). |
+| `crowdcount.server.config_store` | Alert rules (limits and options), cameras and log retention (`data/config.json`). |
 | `crowdcount.server.storage` | `JsonStore`: locked read-modify-write and atomic writes. |
-| `crowdcount/web/` | Dashboard, sign-in and admin pages (plain JS, vendored Bootstrap and Chart.js). |
+| `crowdcount/web/` | The Live, Alerts, Zones, Settings and Sign in pages, with a shared sidebar and header (plain JS and CSS; Geist fonts, Lucide icon paths and Chart.js are vendored). |
 
 ## One frame through the pipeline
 
@@ -68,8 +68,8 @@ flowchart LR
    points, plus `set_frames()` with the annotated and raw images.
 7. `publish()` updates the snapshot and peak, adds a Gaussian blob per person to the
    heatmap, folds the counts into the current one-second history bucket, and evaluates
-   thresholds. Newly breached thresholds go to alert listeners; the server registers one
-   that writes alert history.
+   alert rules. A newly raised alert (near or over its limit) goes to alert listeners; the
+   server registers one that writes the alert history and activity log.
 8. If enabled, the frame is written to `--output`, metrics rows go to `--metrics-out`, and the
    preview window is updated. For files with `--realtime` (the default), the loop sleeps to
    keep the source's native frame rate.
@@ -87,8 +87,10 @@ flowchart LR
   blended over the latest raw frame. It is cumulative until reset.
 - **Frames:** the latest annotated frame (JPEG-encoded once per frame, on demand, for every
   stream client) and the latest raw frame (`/api/snapshot`, the backdrop for drawing zones).
-- **Thresholds and alerts:** the global and per-zone thresholds, loaded from
-  `data/config.json` at server start; the set of currently breached thresholds.
+- **Alert rules and active alerts:** the Total occupancy rule and the per-zone rules, loaded from
+  `data/config.json` at server start, and the alerts that are open now. An alert rises at once
+  and drops a level or clears only after the lower condition has held for 5 seconds; each has an
+  id that is also its history record's id.
 - **Detector status:** `offline`, `starting`, `running`, `stopped` or `error`, plus source,
   model, tracker, device, frame size and a throughput figure over the last ~20 frames.
 
@@ -101,9 +103,9 @@ data_dir`), plus the zones file:
 | --- | --- |
 | `users.json` | Accounts with bcrypt hashes (permissions `0600`). |
 | `.jwt_secret` | Generated token-signing secret, if `CROWDCOUNT_JWT_SECRET` is unset (`0600`). |
-| `config.json` | Thresholds, saved cameras, log retention. |
+| `config.json` | Alert rule limits and options, saved cameras, log retention. |
 | `activity_logs.json` | Sign-ins, configuration changes, alerts (capped at 20,000 entries; pruned by retention at startup). |
-| `alerts_history.json` | One record per threshold breach, with acknowledgement. |
+| `alerts_history.json` | One record per alert raised (near or over its limit), with acknowledgement. |
 | `demo-zones.json` | Zones used by `crowdcount demo`. |
 | `zones.json` (default `./zones.json`) | Zone polygons for `run`/`detect`/`serve`. |
 

@@ -31,7 +31,7 @@ min_aspect_ratio = 0.15
 max_aspect_ratio = 2.0
 
 [zones]
-# Zone polygons. Edited from the admin panel or `crowdcount zones edit`; reloaded live.
+# Zone polygons. Edited on the Zones page or `crowdcount zones edit`; reloaded live.
 file = "zones.json"
 
 [server]

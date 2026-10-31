@@ -32,7 +32,7 @@ prints the version. Run any command with `--help` for its flags.
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--source` | (required) | Video file or stream URL (`rtsp://`, `http://`...). Not on `demo`. |
-| `--camera NAME` | | (`run` only) Use a source saved in the admin panel's Cameras page. |
+| `--camera NAME` | | (`run` only) Use a source saved under Settings → Video sources. |
 | `--model` | `yolo26m.pt` | YOLO weights: a stock name such as `yolo26s.pt`, `yolo11m.pt` or `yolov8m.pt` (downloaded on first use to the cache dir), or a `.pt` path. |
 | `--device` | `auto` | `auto` picks `cuda:0`, then `mps` (Apple silicon), then `cpu`. |
 | `--tracker` | `bytetrack` | `bytetrack`, `botsort`, or an Ultralytics tracker YAML ([tracking.md](tracking.md)). |
@@ -104,8 +104,35 @@ port = 8080
 data_dir = "/var/lib/crowdcount"
 ```
 
-Alert thresholds, saved cameras and log retention are not in this file. They are edited at
-runtime from the admin panel and stored in `<data dir>/config.json`.
+Alert rules, saved video sources and log retention are not in this file. They are edited at
+runtime (Alerts, Settings and Zones pages) and stored in `<data dir>/config.json`.
+
+### `config.json`
+
+You normally never edit this file by hand, but it is plain JSON:
+
+```json
+{
+  "cameras": [],
+  "thresholds": {"global_threshold": 50, "zone_thresholds": {"East plaza": 2}},
+  "rule_options": {
+    "global": {},
+    "zones": {"East plaza": {"warn_percent": 80, "enabled": true, "banner": true}}
+  },
+  "log_retention_days": 30
+}
+```
+
+- `thresholds` holds the limits as whole numbers, exactly as in 1.x, so a 2.0 file still opens in
+  1.x. `global_threshold` is the Total occupancy limit (default 50); `zone_thresholds` has one
+  entry per zone rule.
+- `rule_options` holds the rest of each alert rule, under `global` and `zones` (keyed by zone
+  name): `warn_percent` (early warning, 1-100, default 80), `enabled` (default `true`) and
+  `banner` (show the dashboard banner, default `true`). Anything missing takes the default, so
+  a file without `rule_options` (from 1.x or an earlier 2.0 build) loads with default options.
+- A hand-edited value that is invalid (a limit below 1, a percentage outside 1-100, a non-boolean
+  switch) is ignored with a warning in the log, and the default is used. An invalid zone limit
+  leaves that zone without a rule.
 
 ## Environment variables
 

@@ -1,4 +1,4 @@
-"""Runtime settings edited from the admin panel: thresholds, cameras, log retention.
+"""Runtime settings edited in the app: alert rules, video sources, log retention.
 
 Stored in ``<data_dir>/config.json`` (same format as CrowdCount 1.x).
 """

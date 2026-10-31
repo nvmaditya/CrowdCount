@@ -130,7 +130,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     run = sub.add_parser("run", help="run the detector and the web dashboard together")
     _add_video_args(run)
-    run.add_argument("--camera", help="use a camera saved in the admin panel, by name (instead of --source)")
+    run.add_argument(
+        "--camera", help="use a source saved in Settings > Video sources, by name (instead of --source)"
+    )
     _add_detection_args(run)
     _add_server_args(run)
     run.set_defaults(func=cmd_run)
@@ -157,7 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve = sub.add_parser("serve", help="run only the web dashboard and admin API")
     _add_server_args(serve)
     serve.add_argument(
-        "--zones", dest="zones_file", type=Path, help="zones JSON file edited from the admin panel"
+        "--zones", dest="zones_file", type=Path, help="zones JSON file edited on the Zones page"
     )
     serve.set_defaults(func=cmd_serve)
 
@@ -367,9 +369,11 @@ def _camera_source(settings: Settings, name: str) -> str:
     camera = store.find_camera(name)
     if camera is None:
         known = ", ".join(c.name for c in store.cameras()) or "none saved yet"
-        raise ConfigError(f"no camera named '{name}' (cameras: {known}). Add one in the admin panel.")
+        raise ConfigError(
+            f"no camera named '{name}' (cameras: {known}). Add one in Settings > Video sources."
+        )
     if not camera.enabled:
-        raise ConfigError(f"camera '{camera.name}' is disabled in the admin panel")
+        raise ConfigError(f"camera '{camera.name}' is turned off in Settings > Video sources")
     logger.info("Using saved camera '%s'", camera.name)
     return camera.source_url
 

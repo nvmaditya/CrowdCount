@@ -44,7 +44,7 @@ src/crowdcount/
   pipeline.py     the frame loop
   state.py        SharedState (live data shared with the server)
   server/         FastAPI app: public API, auth, admin, audit log, storage
-  web/            dashboard, sign-in and admin pages (plain JS; vendored libraries in web/vendor)
+  web/            Live, Alerts, Zones, Settings and sign-in pages (plain JS; vendored libraries in web/vendor)
 tests/            pytest suite
 docs/             user documentation
 ```

@@ -17,7 +17,7 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
   applied to the running detector without a restart, and a redesigned UI in light and dark.
 - Real authentication: no default password, a generated token secret, maintained crypto
   libraries.
-- 183 tests and CI on Python 3.10, 3.12 and 3.14, plus an end-to-end demo job and a Docker job.
+- 250+ tests and CI on Python 3.10, 3.12 and 3.14, plus an end-to-end demo job and a Docker job.
 
 ### Breaking changes
 
@@ -29,7 +29,7 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
 - **Default tracker is ByteTrack.** 1.x was described as ByteTrack but ran BoT-SORT
   (`tracker="botsort.yaml"`). Use `--tracker botsort` for the old behaviour.
 - **API moved under `/api`.** `/` serves the dashboard. `POST /alerts/threshold` is removed; use
-  `PUT /api/admin/config/thresholds`. `/api/heatmap` returns JPEG. See [API changes](docs/api.md#changes-from-1x).
+  `PUT /api/admin/rules/global` (or the legacy `PUT /api/admin/config/thresholds`). `/api/heatmap` returns JPEG. See [API changes](docs/api.md#changes-from-1x).
 - **Default bind address is `127.0.0.1`** (was `0.0.0.0`). Pass `--host 0.0.0.0` to expose it.
 - **Default model is YOLO26** (`yolo26m.pt`, was `yolov8m.pt`; the demo uses `yolo26n.pt`), for
   higher COCO accuracy at the same size. Pass `--model yolov8m.pt` for the old one. Requires
@@ -52,20 +52,49 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
   YAML), `--loop`, `--stride`, `--realtime`, `--display`, `--max-frames`, `--metrics-out`.
 - MJPEG live stream (`/api/stream`), raw snapshot (`/api/snapshot`), zone layout
   (`/api/zones/layout`), combined `/api/summary` with detector status, peak count and FPS.
-- Zone hot-reload: edits to the zones file (admin panel, `crowdcount zones edit`, or by hand)
+- Zone hot-reload: edits to the zones file (the Zones page, `crowdcount zones edit`, or by hand)
   apply to a running detector within a second; invalid edits are ignored.
-- Browser zone editor in the admin panel. Per-zone thresholds; renaming a zone carries its
-  threshold over.
-- `crowdcount run --camera NAME` starts a source saved in the admin panel.
+- Browser zone editor on the Zones page. Per-zone alert limits; renaming a zone carries its
+  rule over.
+- `crowdcount run --camera NAME` starts a source saved under Settings → Video sources.
 - `crowdcount zones list | validate [--source] | edit`, `crowdcount admin reset-password`.
 - Change-password endpoint and page, alert acknowledgement, activity-log paging (`total`).
-- Redesigned dashboard, sign-in and admin pages with empty, offline and error states;
-  vendored Bootstrap, Bootstrap Icons and Chart.js (works offline).
+- A redesigned dashboard in five pages (Live, Alerts, Zones, Settings, Sign in) with a shared
+  sidebar, light and dark themes that follow the OS until you choose, and empty, offline and
+  error states. Geist fonts, Lucide icon paths and Chart.js are vendored, so it works offline.
+- **Near-limit early warnings.** Alert rules gain an early-warning percentage (80% by default).
+  A count from `warn_at` up to the limit raises a *near* alert before the limit is crossed;
+  above it, *over*. Alerts rise at once and clear after 5 seconds, so a count hovering at a
+  limit doesn't flap. Rules can be switched off, or set not to show a banner
+  ([dashboard](docs/dashboard.md#alerts)).
+- **The Alerts page**: risk per scope, active alerts, the alert rules with an editor, and the
+  history (filterable, exportable as CSV).
+- **Acknowledging from the dashboard.** The Live banner and the Alerts page acknowledge an alert
+  (admins); each alert has the same id as its history record.
+- API: public `GET /api/alerts/history`; `PUT /api/admin/rules/global` and `PUT`/`DELETE
+  /api/admin/rules/zones/{name}`; `rules` in `/api/summary`; `running` on saved cameras;
+  `confidence`, `min_box_area` and `stride` in the config's `runtime`; a `THRESHOLD_WARNING`
+  activity-log entry for near-limit alerts ([API](docs/api.md)).
+- `config.json` gains `rule_options` (`warn_percent`, `enabled`, `banner`). The 1.x `thresholds`
+  keys are unchanged, and a file without `rule_options` loads with default options
+  ([configuration](docs/configuration.md#configjson)).
 - Run summary (`run_summary.json`) with mean processing FPS in `--metrics-out`.
 - Dockerfile, compose file, Makefile, GitHub Actions CI, Dependabot.
 - Documentation: README, `docs/` (architecture, configuration, zones, tracking, dashboard, API,
   deployment, troubleshooting), CONTRIBUTING.
 - A measured YOLOv8 vs YOLO11 vs YOLO26 comparison (n/s/m, CPU and Apple MPS) ([tracking](docs/tracking.md#choosing-a-model)).
+
+### Changed
+
+- **The `alerts` payload.** `GET /api/alerts` and the summary's `alerts` now include near-limit
+  alerts, and each entry has `id`, `level` (`near` or `over`), `since`, `acknowledged` and
+  `banner`. `has_alerts` and `exceeded` still mean "over its limit".
+- **The admin panel is replaced by Settings, Zones and Alerts.** Video sources, detection
+  details, users, data retention and the activity log are in Settings (admins; everyone signed
+  in gets *Your account*); zones are on the Zones page and thresholds on the Alerts page.
+  `/admin.html` redirects to `/settings.html`.
+- Alerts and Zones can be viewed by anyone; the public alert history leaves out who
+  acknowledged each alert.
 
 ### Fixed
 
@@ -111,6 +140,7 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
 
 ### Removed
 
+- Bootstrap and Bootstrap Icons, and the admin panel pages and scripts that used them.
 - `dp.py` (an unrelated puzzle solver), and the stray empty files `2.0` and `pip`.
 - `people_detector_bytetrack.py` (an older copy of the integrated detector).
 - Unused dependencies `pandas` and `python-multipart`.

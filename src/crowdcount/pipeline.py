@@ -119,7 +119,7 @@ class Pipeline:
         self.zone_tracker = ZoneTracker(load_zones(self.zones_file))
         if not self.zone_tracker.zones:
             logger.info(
-                "No zones in %s yet: counting the whole frame. Draw zones in the admin panel "
+                "No zones in %s yet: counting the whole frame. Draw zones on the Zones page "
                 "or with `crowdcount zones edit`; they apply without a restart.",
                 self.zones_file,
             )

@@ -238,7 +238,7 @@ class UserStore:
             if admin and verify_password(_V1_DEFAULT_PASSWORD, admin.password_hash):
                 logger.warning(
                     "The '%s' account still uses the old default password. Change it with "
-                    "`crowdcount admin reset-password` or from the admin panel.",
+                    "`crowdcount admin reset-password` or from Settings.",
                     INITIAL_ADMIN_USERNAME,
                 )
             return None

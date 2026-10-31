@@ -50,7 +50,7 @@ dashboard to see what is detected.
 
 **Zone counts stay at 0.**
 - `WARNING … Zone(s) … extend beyond the WxH frame`: the zones were drawn for another camera or
-  resolution. Redraw them in the admin panel.
+  resolution. Redraw them on the Zones page.
 - The zone may be disabled.
 - Counting uses the *centre* of each box. A zone drawn only on the floor can miss people whose
   centre is above it ([zones.md](zones.md#counting-rules)).
@@ -74,7 +74,24 @@ The stream only starts once the detector reports "Live". Reverse proxies must no
 `/api/stream` ([deployment.md](deployment.md#reverse-proxy)).
 
 **"Can't reach the CrowdCount server."**
-The server stopped or the network dropped. The page retries every second.
+The server stopped or the network dropped. The page retries every second and clears the bar
+when the server answers again.
+
+**There is no Settings link, or I can't change anything.**
+Settings appears in the sidebar only when you are signed in; the sidebar has a *Sign in* button
+otherwise. Regular users see only *Your account* there. Alert rules, zones, video sources and
+users need an admin ([roles](dashboard.md#roles)). A bookmark of the 1.x admin page redirects to
+Settings.
+
+**An alert stays on after the count dropped.**
+By design. An alert drops a level or clears only after the lower condition has held for 5
+seconds, so a count hovering at a limit doesn't flap. Switching the rule off clears it at once.
+
+**No alert fired although the count was high.**
+Check the Alerts page: a zone only has a rule once it has a limit, the rule's switch must be on,
+and a count must be *above* the limit to be over it (from the early-warning count up to the limit
+it is only *near*). The banner shows only over-limit alerts, and only for rules that have *Show a
+banner on the dashboard* on.
 
 **I can't sign in / forgot the password.**
 Run `crowdcount admin reset-password` (same `--data-dir` as the server). The first password is

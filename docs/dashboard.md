@@ -1,34 +1,148 @@
-# Dashboard and admin panel
+# Dashboard
 
-![The full dashboard during a zone-threshold alert: KPIs, live view, zones, history and zone charts, heatmap, threshold and export controls](images/dashboard.jpg)
+![The Live page during an alert: a banner, four stat cards, the camera, zones against their limits, the people-over-time chart, the heatmap and recent events](images/dashboard.jpg)
 
-`crowdcount run` (or `demo`) serves the UI at **http://localhost:8080/**, with sign-in at
-`/login.html`, the admin panel at `/admin.html`, and interactive API docs at `/docs`.
-Old `/static/...` URLs from 1.x redirect.
+`crowdcount run` (or `demo`) serves the UI at **http://localhost:8080/** and interactive API docs
+at `/docs`. There are five pages, all behind one sidebar (a top bar on phones):
 
-## Dashboard
+| Page | Path | Who can open it |
+| --- | --- | --- |
+| [Live](#live) | `/` | Anyone |
+| [Alerts](#alerts) | `/alerts.html` | Anyone (only admins can change anything) |
+| [Zones](#zones) | `/zones.html` | Anyone (only admins can change anything) |
+| [Settings](#settings) | `/settings.html` | Signed-in users; regular users see only *Your account* |
+| Sign in | `/login.html` | Anyone |
 
-It refreshes once a second and needs no login to view.
+Old `/static/...` URLs from 1.x redirect, and the 1.x admin page's address now opens Settings
+(see [api.md](api.md#pages)). The pages need no internet access. Fonts, icons and Chart.js ship
+with the package ([`web/vendor/README.md`](../src/crowdcount/web/vendor/README.md)).
+
+The light/dark toggle in the header follows your OS setting until you choose; the choice is
+remembered per browser. If the server stops answering, every page shows an offline bar and
+recovers by itself when it comes back.
+
+## Live
+
+Refreshes once a second and needs no sign-in.
 
 - **Status pill**: detector state (live, starting, finished, error, offline), source and
   throughput. Hover for model, tracker and device.
-- **KPIs**: people now, peak this run (with time), zones occupied, active alerts.
-- **Live view**: the annotated video as MJPEG (`/api/stream`, up to 15 fps). It disconnects
-  while the tab is hidden and shows an explanation instead of a black box when the detector
-  isn't running.
-- **Zones**: occupancy per zone in the overlay colours, with a bar against the zone's threshold
-  (or its share of the total when it has none) and the unique-track count.
-- **People over time**: the last 10 minutes at one point per second (the peak within each
-  second), total plus one line per zone.
-- **Occupancy by zone**: current counts as bars.
+- **Banner**: appears while a scope is over its limit and its rule has *Show a banner on the
+  dashboard* on. It names the scope, the count and the limit, and mentions scopes that are close
+  to theirs. Admins get an *Acknowledge* button; everyone gets *Review alerts*. If the detector
+  stops with an error, the banner says so.
+- **Stat cards**: people now, peak this run (with time), total occupancy against its limit, and
+  active alerts.
+- **Camera**: the annotated video as MJPEG (`/api/stream`, up to 15 fps), with a full-screen
+  button. It disconnects while the tab is hidden, and shows an explanation instead of a black
+  box when the detector isn't running.
+- **Zones**: occupancy per zone in the overlay colours, against its limit (or its share of the
+  total when it has none), with the unique-track count. Zones at the greatest risk come first.
+  Admins get an *Edit zones* link.
+- **People over time**: total plus one line per zone, for the last 10 minutes, 30 minutes or hour
+  (your choice is remembered). Each point is the peak within its window (10 seconds, 30
+  seconds or a minute).
 - **Heatmap**: where people have been since the run started or the last reset, blended over the
   latest frame. Signed-in users can reset it.
-- **Alert threshold**: the total-occupancy threshold. Only admins can change it here.
-- **Export**: the last hour of per-second counts as CSV, or a one-page PDF report (current and
-  peak counts, a zone table with peaks and thresholds).
+- **Recent events**: the five latest alert records, with a link to the Alerts page. Only alert
+  records appear here, never the activity log.
+- **Export CSV** and **PDF report** in the header: the last hour of per-second counts, or a
+  one-page report (current and peak counts, a zone table with peaks and limits).
 
-The light/dark toggle follows your OS setting until you choose; the choice is remembered per
-browser.
+## Alerts
+
+What is at risk, what fired, and the rules behind it.
+
+- **Risk right now**: one card per scope that has a rule (Total occupancy and any zones): the count
+  against its limit, and a marker where the early warning starts.
+- **Active now**: alerts that are open this moment. They clear on their own when counts drop
+  back.
+- **Alert rules**: one per scope, either **Total occupancy** (everyone in the frame) or a zone.
+  Each rule has:
+  - a **limit**: the alert is *over* when the count is **above** it;
+  - an **early warning** percentage (default **80%**): the alert is *near* from `warn_at` up;
+  - an **on/off** switch;
+  - **Show a banner on the dashboard**, on by default.
+
+  Admins add, edit, switch off and remove rules here (Total occupancy can be edited and switched
+  off, but not removed). Changes apply to the running detector at once and are saved. Everyone
+  else sees the rules read-only. A zone's limit can also be set when drawing it on the
+  [Zones](#zones) page.
+- **History**: every recorded alert, filterable (all, needs review, acknowledged) and exportable
+  as CSV, with an *Acknowledge* button for admins. History survives restarts. The name of the admin who
+  acknowledged an alert is shown to admins only.
+
+### Alert levels
+
+| Level | When | Badge |
+| --- | --- | --- |
+| **Over limit** | count > limit | red |
+| **Near limit** | count ≥ `warn_at` and ≤ limit | amber |
+| **Normal** | anything lower, or the rule is off | none |
+
+`warn_at = min(limit, max(1, ceil(limit × early warning % / 100)))`. With a limit of 10 and the
+default 80%, `warn_at` is 8: 8, 9 and 10 people are *near*, and 11 is *over*. A limit of 1 gives
+a `warn_at` of 1, so being at the limit is already *near*.
+
+The server works the level out once; the browser only displays it.
+
+**Rising is immediate, falling is not.** An alert appears as soon as a count reaches the next
+level. It drops a level, or clears, only after the lower condition has held for **5 seconds**.
+Detection counts jitter by one or two from frame to frame, and this stops a count hovering at a
+limit from writing a new record every frame. Switching a rule off, or removing it, clears its
+alert at once.
+
+**Records and acknowledgement.** Each time an alert rises, one record is written to the history:
+*near* when it reached the early warning, and a second *over* record if it then crossed the
+limit. Dropping from *over* back to *near* writes nothing. Every active alert has the same id
+as its history record, so acknowledging an alert (admins only, from the banner, Active now or
+History) marks both. Acknowledging hides the banner for that alert; it does not clear the
+alert, and does not silence the next one.
+
+## Zones
+
+Draw areas on the live frame; see [zones.md](zones.md) for the counting rules and file
+format. Admins click *New zone*, click corners on the frame, close the shape, then name it,
+pick a colour and optionally set an *Alert above* limit. Zones can be edited, switched off and
+deleted from the list. Anyone else sees the zones read-only. Drawing needs a running detector,
+because the editor draws on its latest frame, and the detector picks up changes within a second.
+
+## Settings
+
+Sign in to open it. Admins see all sections; everyone else sees *Your account*.
+
+| Section | What it does | Who |
+| --- | --- | --- |
+| Video sources | Save named streams and files. A detector watches one source at a time; start a saved one with `crowdcount run --camera "Name"` (each row has the command to copy). The row of the source being watched shows *Running*. | Admin |
+| Detection | Read-only: model, tracker, device, minimum confidence, minimum box size and frame stride of the running detector. Change them in `crowdcount.toml` or with flags; they apply on the next start. | Admin |
+| Users | Add admins or users; delete accounts (not yourself, not the last admin). | Admin |
+| Data | The CSV and PDF exports of recent counts, and how long the activity log and alert records are kept (1 to 3650 days; default 30). | Admin |
+| Activity log | Filter by category, load more, export as CSV or PDF. | Admin |
+| Your account | Your profile and password change. | Everyone signed in |
+
+### Roles
+
+| | Anonymous | User | Admin |
+| --- | :---: | :---: | :---: |
+| View Live, Alerts (rules and history) and Zones; stream, charts, exports | ✓ | ✓ | ✓ |
+| Reset the heatmap, change your own password | | ✓ | ✓ |
+| Change alert rules, zones, video sources and users; change retention | | | ✓ |
+| Acknowledge alerts; read the activity log and who acknowledged what | | | ✓ |
+
+The alert history is public, but leaves out who acknowledged each alert (`GET /api/alerts/history`).
+The activity log is admin-only because it holds usernames and client IP addresses.
+
+### What gets logged
+
+| Category | Events |
+| --- | --- |
+| `AUTH` | Sign-in success and failure (with username and client IP), sign-out, password change |
+| `CONFIG` | Zone, alert rule, camera, user and retention changes; heatmap resets; log cleanup |
+| `ALERT` | `THRESHOLD_WARNING` when a count reaches an early warning; `THRESHOLD_EXCEEDED` when it passes a limit; alert acknowledged |
+
+Entries older than the retention period (default 30 days; change it in Settings → Data or with
+`PUT /api/admin/config/retention?retention_days=N`) are removed at each server start, along with
+old alert records. The log is also capped at 20,000 entries.
 
 ## First sign-in
 
@@ -54,40 +168,6 @@ crowdcount admin reset-password                  # prompts; add --username / --p
 
 *Keep me signed in* stores the session in `localStorage`; otherwise it lasts until the tab is
 closed. Tokens expire after 24 hours.
-
-## Admin panel
-
-| Page | What you can do |
-| --- | --- |
-| Overview | Counts of zones, cameras, users and unacknowledged alerts; detector status; recent activity. |
-| Zones | Draw zones on the live frame; enable, disable or delete them. Changes reach the running detector within a second. See [zones.md](zones.md). |
-| Thresholds | Set the total threshold and per-zone thresholds; clear a zone's threshold. Applied immediately and persisted. |
-| Cameras | Save named sources (stream URL or video file). Start one with `crowdcount run --camera "Name"`; the page copies the command for you. One detector process watches one source. |
-| Users | Create admins or users; delete accounts. You can't delete yourself or the last admin. |
-| Activity log | Filter by category and date, page through, export CSV or PDF. |
-| Alert history | Every threshold breach, with acknowledgement. |
-| Account | Your profile; change your password. |
-
-### Roles
-
-| | Anonymous | User | Admin |
-| --- | :---: | :---: | :---: |
-| View dashboard, stream, charts, exports | ✓ | ✓ | ✓ |
-| Reset heatmap | | ✓ | ✓ |
-| Change thresholds, zones, cameras, users, retention | | | ✓ |
-| Read activity log and alert history; acknowledge alerts | | | ✓ |
-
-### What gets logged
-
-| Category | Events |
-| --- | --- |
-| `AUTH` | Sign-in success and failure (with username and client IP), sign-out, password change |
-| `CONFIG` | Zone, threshold, camera, user and retention changes; heatmap resets; log cleanup |
-| `ALERT` | Threshold exceeded; alert acknowledged |
-
-Entries older than the retention period (default 30 days; change it with
-`PUT /api/admin/config/retention?retention_days=N`) are removed at each server start, along with
-old alert records. The log is also capped at 20,000 entries.
 
 ## Security model
 

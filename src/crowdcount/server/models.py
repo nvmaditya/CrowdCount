@@ -150,7 +150,7 @@ class Camera(CameraCreate):
 
 
 class ZoneIn(BaseModel):
-    """A zone as sent by the admin panel. Validated with the same rules as zones.json."""
+    """A zone as sent by the Zones page. Validated with the same rules as zones.json."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -200,7 +200,7 @@ class ThresholdUpdate(BaseModel):
 
 
 class RuleIn(BaseModel):
-    """An alert rule as sent by the admin panel."""
+    """An alert rule as sent by the Alerts or Zones page."""
 
     model_config = ConfigDict(extra="forbid")
 

@@ -14,10 +14,11 @@ Without zones, CrowdCount still counts everyone in the frame.
 All three edit the same JSON file, and a running detector reloads it within about a second.
 There is no restart.
 
-1. **Admin panel, Zones page (recommended).** Click *New zone*, click to place corners on the
-   live frame, and click the first corner (or double-click) to close the shape. Name it, pick a
-   colour and save. Zones can be enabled, disabled or deleted from the list. This needs a
-   running detector, because the editor draws on its latest frame.
+1. **The Zones page (recommended; admins only).** Click *New zone*, click to place corners on
+   the live frame, and click the first corner (or double-click) to close the shape. Name it, pick
+   a colour, optionally set an *Alert above* limit, and save. Zones can be edited, switched off or
+   deleted from the list. This needs a running detector, because the editor draws on its latest
+   frame. Anyone can open the page and see the zones, but only admins can change them.
 2. **OpenCV editor.**
    ```bash
    crowdcount zones edit --source path/to/video.mp4     # or an rtsp:// stream URL
@@ -60,7 +61,7 @@ There is no restart.
 
 | Field | Required | Rules |
 | --- | --- | --- |
-| `name` | yes | Non-empty and unique; it is the key for thresholds and the API. |
+| `name` | yes | Non-empty and unique; it is the key for alert rules and the API. |
 | `points` | yes | At least 3 `[x, y]` pairs in source-image pixels. Concave shapes are fine. |
 | `color` | no | `[r, g, b]`, each 0-255. Defaults to a palette colour. |
 | `enabled` | no | `true` by default. Disabled zones are kept but not counted. |
@@ -90,12 +91,24 @@ frame logs a warning: it was probably drawn for a different camera or resolution
 - **Reloading zones keeps history.** Unique-track counts survive a reload for zones whose name
   is unchanged.
 
-## Thresholds and alerts
+## Alert rules
 
-Each zone can have its own alert threshold, alongside the total-occupancy threshold. Both are
-set on the admin panel's Thresholds page (`PUT /api/admin/config/thresholds`). An alert fires
-when a count goes **above** its threshold. It is recorded once per breach: it fires again only
-after the count has dropped back to the threshold or below. Breaches appear as a banner on the
-dashboard, in Alert history (where admins can acknowledge them), and in the activity log.
+Each zone can have an alert rule, alongside the **Total occupancy** rule for the whole frame. A
+rule has a limit, an early-warning percentage (default 80%), an on/off switch and a choice of
+whether to show a banner on the dashboard. A zone has no rule until you give it a limit: set one
+in the *Alert above* field of the zone form on the Zones page, or on the Alerts page
+(`PUT /api/admin/rules/zones/{name}`, see [api.md](api.md)).
 
-Renaming a zone in the admin panel carries its threshold over; deleting a zone removes it.
+- **Over limit** when the count is **above** the limit.
+- **Near limit** from `warn_at` up to the limit, where
+  `warn_at = min(limit, max(1, ceil(limit × early warning % / 100)))`. With a limit of 10 and the
+  default 80%, 8 and 9 people are near and 11 is over.
+- An alert appears at once. It drops a level or clears only after the lower condition has held
+  for 5 seconds, so a count hovering at a limit doesn't write a new record every frame.
+
+Each alert that appears is recorded once, shown on the Live page (a banner for over-limit alerts,
+if the rule shows one) and in the Alerts page's history, where admins can acknowledge it, and
+the activity log. [dashboard.md](dashboard.md#alerts) has the details.
+
+Renaming a zone in the Zones page carries its rule over; deleting a zone removes it. Rules are
+stored by zone name in `config.json`.

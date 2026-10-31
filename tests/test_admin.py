@@ -431,3 +431,19 @@ class TestAlertRules:
         assert live["acknowledged"] is False
         client.post(f"/api/admin/alerts/{live['id']}/acknowledge", headers=admin_headers)
         assert client.get("/api/summary").json()["alerts"]["global"]["acknowledged"] is True
+
+
+def test_camera_running_flag(client, admin_headers):
+    from crowdcount.video import describe_source
+
+    for name, url in [("Lobby", "rtsp://cam.local/lobby"), ("Clip", "/videos/clip.mp4")]:
+        client.post("/api/admin/cameras", json={"name": name, "source_url": url}, headers=admin_headers)
+    client.state.begin_run(width=64, height=48, source=describe_source("rtsp://cam.local/lobby"))
+    cameras = client.get("/api/admin/cameras", headers=admin_headers).json()["cameras"]
+    assert {c["name"]: c["running"] for c in cameras} == {"Lobby": True, "Clip": False}
+
+
+def test_config_runtime_includes_detection_settings(make_client):
+    client = make_client(confidence=0.35, min_box_area=800, stride=2)
+    runtime = client.get("/api/admin/config", headers=login(client)).json()["runtime"]
+    assert (runtime["confidence"], runtime["min_box_area"], runtime["stride"]) == (0.35, 800, 2)

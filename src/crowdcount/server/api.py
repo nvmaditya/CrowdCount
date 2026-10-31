@@ -94,6 +94,15 @@ def alerts(services: Services = Depends(get_services)) -> dict:
     }
 
 
+@router.get("/alerts/history")
+def alert_history(limit: int = Query(100, ge=1, le=1000), services: Services = Depends(get_services)) -> dict:
+    """Recorded alerts, newest first. Public, so it never says who acknowledged an alert."""
+    items = [
+        r.model_dump(mode="json", exclude={"acknowledged_by"}) for r in services.audit.alerts(limit=limit)
+    ]
+    return {"alerts": items, "count": len(items)}
+
+
 @router.get("/coordinates")
 def coordinates(services: Services = Depends(get_services)) -> dict:
     """Centre points of the people in the latest frame, in source pixels."""

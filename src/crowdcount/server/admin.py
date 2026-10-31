@@ -34,6 +34,7 @@ from crowdcount.server.models import (
 )
 from crowdcount.server.reports import activity_report
 from crowdcount.state import AlertRule
+from crowdcount.video import describe_source
 from crowdcount.zones import Zone, ZoneConfigError, load_zones, save_zones
 
 auth_router = APIRouter(prefix="/api/auth", tags=["Authentication"])
@@ -196,7 +197,16 @@ def delete_user(
 @admin_router.get("/cameras", tags=["Cameras"])
 def list_cameras(services: Services = Depends(get_services)) -> dict:
     """Saved video sources. Start one with ``crowdcount run --camera NAME``."""
-    return {"cameras": [c.model_dump(mode="json") for c in services.config.cameras()]}
+    status = services.state.status()
+    return {
+        "cameras": [
+            {
+                **c.model_dump(mode="json"),
+                "running": status.state == "running" and describe_source(c.source_url) == status.source,
+            }
+            for c in services.config.cameras()
+        ]
+    }
 
 
 @admin_router.post("/cameras", response_model=Camera, status_code=201, tags=["Cameras"])
@@ -571,6 +581,9 @@ def get_config(services: Services = Depends(get_services)) -> dict:
             "model": s.model,
             "tracker": s.tracker,
             "device": s.device,
+            "confidence": s.confidence,
+            "min_box_area": s.min_box_area,
+            "stride": s.stride,
         },
     }
 

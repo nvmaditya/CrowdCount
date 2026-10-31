@@ -1,5 +1,8 @@
 """Public dashboard API."""
 
+import json
+from datetime import datetime
+
 import numpy as np
 
 from conftest import login
@@ -144,3 +147,31 @@ def test_zone_layout(client, tmp_path):
     save_zones(tmp_path / "zones.json", [Zone("Gate", [(0, 0), (9, 0), (9, 9)], (1, 2, 3))])
     (zone,) = client.get("/api/zones/layout").json()["zones"]
     assert zone["name"] == "Gate" and zone["color"] == [1, 2, 3]
+
+
+def test_public_alert_history_hides_who_acknowledged(client, admin_headers):
+    client.state.set_global_threshold(1)
+    client.state.publish(total=2, zones={})
+    alert_id = client.get("/api/summary").json()["alerts"]["global"]["id"]
+    client.post(f"/api/admin/alerts/{alert_id}/acknowledge", headers=admin_headers)
+    data = client.get("/api/alerts/history?limit=5").json()
+    (item,) = data["alerts"]
+    assert data["count"] == 1
+    assert item["acknowledged"] is True
+    assert item["level"] == "over"
+    assert "acknowledged_by" not in item
+    assert client.get("/api/alerts/history?limit=0").status_code == 422
+
+
+def test_alert_records_from_before_levels_load_as_over(make_client, tmp_path):
+    data = tmp_path / "data"
+    data.mkdir()
+    record = {
+        "id": "old",
+        "timestamp": datetime.now().astimezone().isoformat(),
+        "alert_type": "global",
+        "threshold": 5,
+        "actual_count": 9,
+    }
+    (data / "alerts_history.json").write_text(json.dumps({"alerts": [record]}))
+    assert make_client().get("/api/alerts/history").json()["alerts"][0]["level"] == "over"

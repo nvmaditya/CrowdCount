@@ -156,7 +156,14 @@ class AuditLog:
             threshold=alert.threshold,
             actual_count=alert.current,
         )
-        self._alerts.update(lambda data: data.setdefault("alerts", []).append(record.model_dump(mode="json")))
+
+        def append(data: dict[str, Any]) -> None:
+            alerts = data.setdefault("alerts", [])
+            alerts.append(record.model_dump(mode="json"))
+            if len(alerts) > self._max:
+                del alerts[: len(alerts) - self._max]
+
+        self._alerts.update(append)
         scope = "Total" if alert.kind == "global" else f"Zone '{alert.zone}'"
         metadata = {"alert_id": record.id, "alert_type": alert.key, "level": alert.level}
         if alert.level == "over":

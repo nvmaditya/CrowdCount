@@ -269,6 +269,25 @@ class TestLogs:
         acked = client.post(f"/api/admin/alerts/{record['id']}/acknowledge", headers=admin_headers).json()
         assert acked["alert"]["acknowledged_by"] == "admin"
         assert client.post("/api/admin/alerts/nope/acknowledge", headers=admin_headers).status_code == 404
+        logs = client.get("/api/admin/logs?action=ALERT_ACKNOWLEDGED", headers=admin_headers).json()["logs"]
+        assert [e["details"] for e in logs] == ["Acknowledged the Total occupancy alert (2 > 1)"]
+
+    def test_acknowledging_an_early_warning_is_worded_as_one(self, client, admin_headers):
+        from crowdcount.state import AlertRule
+        from crowdcount.zones import ZoneStats
+
+        client.state.set_global_rule(AlertRule(10))
+        client.state.set_zone_rule("Gate", AlertRule(5))
+        client.state.publish(total=8, zones={"Gate": ZoneStats(4, 4)})
+        records = client.get("/api/admin/alerts/history", headers=admin_headers).json()["alerts"]
+        assert {r["level"] for r in records} == {"near"}
+        for record in records:
+            client.post(f"/api/admin/alerts/{record['id']}/acknowledge", headers=admin_headers)
+        logs = client.get("/api/admin/logs?action=ALERT_ACKNOWLEDGED", headers=admin_headers).json()["logs"]
+        assert {e["details"] for e in logs} == {
+            "Acknowledged the Total occupancy early warning (8 of 10)",
+            "Acknowledged the 'Gate' early warning (4 of 5)",
+        }
 
     def test_retention(self, client, admin_headers):
         assert (
@@ -302,7 +321,7 @@ class TestAlertRules:
 
     @pytest.mark.parametrize("name", ["Gate / North", "Café 'B'"])
     def test_zone_rules_round_trip_awkward_names(self, client, admin_headers, name):
-        url = f"/api/admin/rules/zones/{quote(name)}"
+        url = f"/api/admin/rules/zones/{quote(name, safe='')}"  # "/" sent as %2F, as browsers do
         assert client.put(url, json={"limit": 3}, headers=admin_headers).status_code == 404
         add_zone(client, admin_headers, name)
         assert client.put(url, json={"limit": 3}, headers=admin_headers).json()["rule"]["warn_at"] == 3

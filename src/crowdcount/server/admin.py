@@ -556,13 +556,18 @@ def acknowledge_alert(
     if record is None:
         raise HTTPException(status_code=404, detail="Alert not found")
     services.state.acknowledge_alert(alert_id)
+    scope = "Total occupancy" if record.alert_type == "global" else f"'{record.alert_type}'"
+    if record.level == "near":
+        details = f"Acknowledged the {scope} early warning ({record.actual_count} of {record.threshold})"
+    else:
+        details = f"Acknowledged the {scope} alert ({record.actual_count} > {record.threshold})"
     services.audit.log(
         LogCategory.ALERT,
         LogAction.ALERT_ACKNOWLEDGED,
         user_id=admin.user_id,
         username=admin.username,
         ip_address=ip,
-        details=f"Acknowledged {record.alert_type} alert ({record.actual_count} > {record.threshold})",
+        details=details,
     )
     return {"success": True, "alert": record.model_dump(mode="json")}
 

@@ -2,8 +2,10 @@ import json
 import threading
 
 from crowdcount.cli import EXIT_OK, EXIT_USAGE, main
+from crowdcount.server.audit import AuditLog
 from crowdcount.server.auth import UserStore
 from crowdcount.server.storage import JsonStore
+from crowdcount.state import Alert
 
 
 def test_missing_file_uses_default(tmp_path):
@@ -45,6 +47,14 @@ def test_private_files_are_owner_only(tmp_path):
     store = JsonStore(tmp_path / "secret.json", dict, private=True)
     store.write({"a": 1})
     assert (tmp_path / "secret.json").stat().st_mode & 0o077 == 0
+
+
+def test_alert_history_keeps_only_the_newest_entries(tmp_path):
+    alerts = JsonStore(tmp_path / "alerts_history.json", lambda: {"alerts": []})
+    audit = AuditLog(JsonStore(tmp_path / "activity_logs.json", lambda: {"logs": []}), alerts, max_entries=3)
+    for count in range(1, 6):
+        audit.record_alert(Alert("global", "global", threshold=1, current=count))
+    assert [r["actual_count"] for r in alerts.read()["alerts"]] == [3, 4, 5]
 
 
 class TestResetPasswordCommand:

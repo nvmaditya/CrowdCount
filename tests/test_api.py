@@ -123,3 +123,12 @@ def test_websocket_pushes_summary(client):
 
 def test_old_public_threshold_endpoint_is_gone(client):
     assert client.post("/alerts/threshold?global_threshold=1").status_code in (404, 405)
+
+
+def test_zone_layout(client, tmp_path):
+    from crowdcount.zones import Zone, save_zones
+
+    assert client.get("/api/zones/layout").json() == {"zones": []}
+    save_zones(tmp_path / "zones.json", [Zone("Gate", [(0, 0), (9, 0), (9, 9)], (1, 2, 3))])
+    (zone,) = client.get("/api/zones/layout").json()["zones"]
+    assert zone["name"] == "Gate" and zone["color"] == [1, 2, 3]

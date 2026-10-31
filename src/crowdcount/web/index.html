@@ -1,945 +1,174 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
     <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>People Detection Dashboard</title>
-
-        <!-- Bootstrap 5 CSS -->
-        <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-            rel="stylesheet"
-        />
-        <!-- Bootstrap Icons -->
-        <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
-            rel="stylesheet"
-        />
-        <!-- Chart.js -->
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-        <style>
-            :root {
-                --primary-color: #4361ee;
-                --success-color: #2ec4b6;
-                --warning-color: #ff9f1c;
-                --danger-color: #e71d36;
-                --dark-color: #1a1a2e;
-            }
-
-            body {
-                background-color: #f8f9fa;
-                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-            }
-
-            .navbar {
-                background: linear-gradient(135deg, var(--dark-color), #16213e);
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            }
-
-            .card {
-                border: none;
-                border-radius: 15px;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-                transition: transform 0.3s ease, box-shadow 0.3s ease;
-            }
-
-            .card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            }
-
-            .stat-card {
-                padding: 1.5rem;
-            }
-
-            .stat-card .stat-value {
-                font-size: 3rem;
-                font-weight: 700;
-                line-height: 1;
-            }
-
-            .stat-card .stat-label {
-                font-size: 0.9rem;
-                color: #6c757d;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-
-            .total-count-card {
-                background: linear-gradient(
-                    135deg,
-                    var(--primary-color),
-                    #3a0ca3
-                );
-                color: white;
-            }
-
-            .total-count-card .stat-label {
-                color: rgba(255, 255, 255, 0.8);
-            }
-
-            .zone-card {
-                background: linear-gradient(
-                    135deg,
-                    var(--success-color),
-                    #1a936f
-                );
-                color: white;
-            }
-
-            .zone-card .stat-label {
-                color: rgba(255, 255, 255, 0.8);
-            }
-
-            .alert-banner {
-                position: fixed;
-                top: 70px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 1050;
-                animation: pulse 1s infinite;
-            }
-
-            @keyframes pulse {
-                0%,
-                100% {
-                    opacity: 1;
-                }
-                50% {
-                    opacity: 0.7;
-                }
-            }
-
-            .chart-container {
-                position: relative;
-                height: 300px;
-                padding: 1rem;
-            }
-
-            .heatmap-container {
-                text-align: center;
-            }
-
-            .heatmap-container img {
-                max-width: 100%;
-                height: auto;
-                border-radius: 10px;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            }
-
-            .status-indicator {
-                width: 12px;
-                height: 12px;
-                border-radius: 50%;
-                display: inline-block;
-                margin-right: 8px;
-            }
-
-            .status-running {
-                background-color: #28a745;
-                animation: blink 1s infinite;
-            }
-
-            .status-stopped {
-                background-color: #dc3545;
-            }
-
-            @keyframes blink {
-                0%,
-                100% {
-                    opacity: 1;
-                }
-                50% {
-                    opacity: 0.5;
-                }
-            }
-
-            .export-btn {
-                border-radius: 25px;
-                padding: 0.5rem 1.5rem;
-                font-weight: 500;
-                transition: all 0.3s ease;
-            }
-
-            .export-btn:hover {
-                transform: scale(1.05);
-            }
-
-            .threshold-input {
-                max-width: 120px;
-            }
-
-            .last-update {
-                font-size: 0.8rem;
-                color: #6c757d;
-            }
-
-            footer {
-                background: var(--dark-color);
-                color: #adb5bd;
-                padding: 1rem 0;
-                margin-top: 2rem;
-            }
-
-            /* Alert sound notification styles */
-            .sound-toggle {
-                cursor: pointer;
-            }
-
-            /* Zone cards grid */
-            .zones-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-                gap: 1rem;
-            }
-        </style>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CrowdCount · Live</title>
+        <meta name="description" content="Live crowd monitoring dashboard" />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <script src="assets/js/theme-init.js"></script>
+        <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css" />
+        <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css" />
+        <link rel="stylesheet" href="assets/css/theme.css" />
     </head>
     <body>
-        <!-- Navigation -->
-        <nav class="navbar navbar-expand-lg navbar-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="#">
-                    <i class="bi bi-people-fill me-2"></i>
-                    People Detection Dashboard
+        <nav class="cc-navbar">
+            <div class="container-fluid cc-container d-flex align-items-center gap-3 py-2 px-3 px-lg-4">
+                <a class="cc-brand" href="./">
+                    <img src="favicon.svg" class="cc-logo" alt="" />
+                    CrowdCount
                 </a>
-                <div class="d-flex align-items-center gap-3">
-                    <span id="user-info" class="text-white small d-none">
-                        <i class="bi bi-person-circle me-1"></i>
-                        <span id="username-display"></span>
-                    </span>
-                    <a
-                        href="admin.html"
-                        id="admin-link"
-                        class="btn btn-sm btn-outline-light d-none"
-                    >
-                        <i class="bi bi-gear me-1"></i>Admin
+                <div id="status" class="cc-status d-none d-md-inline-flex" data-state="offline">
+                    <span class="cc-dot"></span><span id="status-text">Connecting…</span>
+                </div>
+                <div class="ms-auto d-flex align-items-center gap-2">
+                    <a class="btn btn-sm btn-outline-secondary d-none d-sm-inline-flex" href="/docs" title="API reference">
+                        <i class="bi bi-braces"></i><span class="ms-1">API</span>
                     </a>
-                    <a
-                        href="login.html"
-                        id="login-link"
-                        class="btn btn-sm btn-outline-light"
-                    >
-                        <i class="bi bi-box-arrow-in-right me-1"></i>Login
-                    </a>
-                    <button
-                        id="logout-btn"
-                        class="btn btn-sm btn-outline-light d-none"
-                        onclick="logout()"
-                    >
-                        <i class="bi bi-box-arrow-right me-1"></i>Logout
-                    </button>
-                    <span
-                        id="status-indicator"
-                        class="d-flex align-items-center text-white"
-                    >
-                        <span class="status-indicator status-stopped"></span>
-                        <span id="status-text">Connecting...</span>
-                    </span>
+                    <button class="btn btn-sm btn-outline-secondary" data-cc-theme-toggle></button>
+                    <div id="auth-area"></div>
                 </div>
             </div>
         </nav>
 
-        <!-- Alert Banner (Hidden by default) -->
-        <div id="alert-banner" class="alert-banner d-none">
-            <div
-                class="alert alert-danger d-flex align-items-center mb-0"
-                role="alert"
-            >
-                <i class="bi bi-exclamation-triangle-fill me-2 fs-4"></i>
-                <div id="alert-message">
-                    <strong>CROWD ALERT!</strong> Threshold exceeded!
-                </div>
-                <button
-                    type="button"
-                    class="btn-close ms-3"
-                    onclick="dismissAlert()"
-                ></button>
-            </div>
-        </div>
+        <main class="container-fluid cc-container px-3 px-lg-4 py-4">
+            <div id="banner" class="mb-3" hidden></div>
 
-        <div class="container-fluid py-4">
-            <!-- Main Stats Row -->
-            <div class="row g-4 mb-4">
-                <!-- Total Count Card -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="card total-count-card stat-card">
-                        <div
-                            class="d-flex justify-content-between align-items-start"
-                        >
-                            <div>
-                                <div class="stat-label">Total People</div>
-                                <div class="stat-value" id="total-count">0</div>
+            <!-- KPIs -->
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-xl-3">
+                    <div class="cc-card cc-kpi">
+                        <div class="cc-kpi-label"><i class="bi bi-people"></i>People now</div>
+                        <div class="cc-kpi-value" id="kpi-now">–</div>
+                        <div class="cc-kpi-meta" id="kpi-now-meta"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="cc-card cc-kpi">
+                        <div class="cc-kpi-label"><i class="bi bi-graph-up-arrow"></i>Peak this run</div>
+                        <div class="cc-kpi-value" id="kpi-peak">–</div>
+                        <div class="cc-kpi-meta" id="kpi-peak-meta"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="cc-card cc-kpi">
+                        <div class="cc-kpi-label"><i class="bi bi-bounding-box"></i>Zones occupied</div>
+                        <div class="cc-kpi-value" id="kpi-zones">–</div>
+                        <div class="cc-kpi-meta" id="kpi-zones-meta"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-xl-3">
+                    <div class="cc-card cc-kpi" id="kpi-alerts-card">
+                        <div class="cc-kpi-label"><i class="bi bi-bell"></i>Active alerts</div>
+                        <div class="cc-kpi-value" id="kpi-alerts">–</div>
+                        <div class="cc-kpi-meta" id="kpi-alerts-meta"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live view + zones -->
+            <div class="row g-3 mb-3">
+                <div class="col-lg-8">
+                    <section class="cc-card h-100">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-camera-video"></i>Live view</h2>
+                            <span class="cc-muted cc-small" id="live-meta"></span>
+                        </div>
+                        <div class="cc-media" id="live"></div>
+                    </section>
+                </div>
+                <div class="col-lg-4">
+                    <section class="cc-card h-100 d-flex flex-column">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-bounding-box-circles"></i>Zones</h2>
+                            <a href="admin.html#zones" class="cc-small" id="zones-edit" hidden>Edit zones</a>
+                        </div>
+                        <div id="zones" class="flex-grow-1"></div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="row g-3 mb-3">
+                <div class="col-lg-8">
+                    <section class="cc-card">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-activity"></i>People over time</h2>
+                            <span class="cc-muted cc-small">Peak per second · last 10 minutes</span>
+                        </div>
+                        <div class="cc-card-body"><div class="cc-chart" id="history-chart"></div></div>
+                    </section>
+                </div>
+                <div class="col-lg-4">
+                    <section class="cc-card">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-bar-chart"></i>Occupancy by zone</h2>
+                        </div>
+                        <div class="cc-card-body"><div class="cc-chart" id="zone-chart"></div></div>
+                    </section>
+                </div>
+            </div>
+
+            <!-- Heatmap + controls -->
+            <div class="row g-3">
+                <div class="col-lg-7">
+                    <section class="cc-card">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-fire"></i>Occupancy heatmap</h2>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="cc-muted cc-small" id="heatmap-since"></span>
+                                <button class="btn btn-sm btn-outline-secondary" id="heatmap-reset" hidden>
+                                    <i class="bi bi-arrow-counterclockwise"></i> Reset
+                                </button>
                             </div>
-                            <i class="bi bi-people fs-1 opacity-50"></i>
                         </div>
-                        <div class="mt-3 last-update text-white-50">
-                            Last update: <span id="last-update">--</span>
-                        </div>
-                    </div>
+                        <div class="cc-media" id="heatmap"></div>
+                    </section>
                 </div>
-
-                <!-- Alert Configuration Card -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="card stat-card">
-                        <div
-                            class="d-flex justify-content-between align-items-start mb-3"
-                        >
-                            <div>
-                                <div class="stat-label text-muted">
-                                    Alert Threshold
-                                </div>
+                <div class="col-lg-5">
+                    <section class="cc-card mb-3">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-bell"></i>Alert threshold</h2>
+                        </div>
+                        <div class="cc-card-body">
+                            <p class="cc-muted cc-small mb-3">
+                                An alert fires when the total number of people exceeds this value. Per-zone
+                                thresholds are set in the admin panel.
+                            </p>
+                            <form id="threshold-form" class="d-flex gap-2 align-items-center">
+                                <input type="number" min="1" class="form-control" id="threshold-input" style="max-width: 9rem" aria-label="Global threshold" />
+                                <button type="submit" class="btn btn-primary" id="threshold-save" hidden>Save</button>
+                                <span class="cc-muted cc-small" id="threshold-hint"></span>
+                            </form>
+                        </div>
+                    </section>
+                    <section class="cc-card">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-download"></i>Export</h2>
+                        </div>
+                        <div class="cc-card-body">
+                            <p class="cc-muted cc-small mb-3">The last hour of per-second counts, or a one-page summary report.</p>
+                            <div class="d-flex gap-2 flex-wrap">
+                                <button class="btn btn-outline-secondary" data-export="/export/csv"><i class="bi bi-filetype-csv me-1"></i>History CSV</button>
+                                <button class="btn btn-outline-secondary" data-export="/export/pdf"><i class="bi bi-file-earmark-pdf me-1"></i>PDF report</button>
                             </div>
-                            <i class="bi bi-bell fs-3 text-warning"></i>
                         </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <input
-                                type="number"
-                                class="form-control threshold-input"
-                                id="global-threshold"
-                                value="50"
-                                min="1"
-                            />
-                            <button
-                                class="btn btn-warning btn-sm"
-                                onclick="setThreshold()"
-                            >
-                                Set
-                            </button>
-                            <button
-                                class="btn btn-outline-secondary btn-sm sound-toggle"
-                                id="sound-toggle"
-                                onclick="toggleSound()"
-                            >
-                                <i class="bi bi-volume-up"></i>
-                            </button>
-                        </div>
-                        <small class="text-muted mt-2"
-                            >Alert when count exceeds this value</small
-                        >
-                    </div>
-                </div>
-
-                <!-- Export Card -->
-                <div class="col-lg-4 col-md-12">
-                    <div class="card stat-card">
-                        <div
-                            class="d-flex justify-content-between align-items-start mb-3"
-                        >
-                            <div>
-                                <div class="stat-label text-muted">
-                                    Export Data
-                                </div>
-                            </div>
-                            <i class="bi bi-download fs-3 text-primary"></i>
-                        </div>
-                        <div class="d-flex gap-2 flex-wrap">
-                            <a
-                                href="/api/export/csv"
-                                class="btn btn-success export-btn"
-                            >
-                                <i
-                                    class="bi bi-file-earmark-spreadsheet me-1"
-                                ></i>
-                                CSV
-                            </a>
-                            <a
-                                href="/api/export/pdf"
-                                class="btn btn-danger export-btn"
-                            >
-                                <i class="bi bi-file-earmark-pdf me-1"></i> PDF
-                            </a>
-                            <button
-                                class="btn btn-outline-secondary export-btn"
-                                onclick="resetHeatmap()"
-                            >
-                                <i class="bi bi-arrow-clockwise me-1"></i> Reset
-                                Heatmap
-                            </button>
-                        </div>
-                    </div>
+                    </section>
                 </div>
             </div>
 
-            <!-- Zone Cards -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <h5 class="mb-3">
-                        <i class="bi bi-geo-alt me-2"></i>Zone Statistics
-                    </h5>
-                    <div id="zones-container" class="zones-grid">
-                        <!-- Zone cards will be dynamically inserted here -->
-                        <div class="card zone-card stat-card text-center">
-                            <div class="stat-label">Loading zones...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Charts Row -->
-            <div class="row g-4 mb-4">
-                <!-- Bar Chart - Zone Counts -->
-                <div class="col-lg-6">
-                    <div class="card">
-                        <div class="card-header bg-white border-0">
-                            <h5 class="mb-0">
-                                <i class="bi bi-bar-chart me-2"></i>Zone-wise
-                                Distribution
-                            </h5>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="zoneBarChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Line Chart - Count Over Time -->
-                <div class="col-lg-6">
-                    <div class="card">
-                        <div class="card-header bg-white border-0">
-                            <h5 class="mb-0">
-                                <i class="bi bi-graph-up me-2"></i>People Count
-                                Over Time
-                            </h5>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="countLineChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Heatmap Row -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div
-                            class="card-header bg-white border-0 d-flex justify-content-between align-items-center"
-                        >
-                            <h5 class="mb-0">
-                                <i class="bi bi-fire me-2"></i>Crowd Density
-                                Heatmap
-                            </h5>
-                            <small class="text-muted"
-                                >Updates every 5 seconds</small
-                            >
-                        </div>
-                        <div class="card-body heatmap-container">
-                            <img
-                                id="heatmap-image"
-                                src="/api/heatmap"
-                                alt="Heatmap"
-                                onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22800%22 height=%22450%22><rect fill=%22%23f0f0f0%22 width=%22800%22 height=%22450%22/><text fill=%22%23999%22 font-family=%22Arial%22 font-size=%2220%22 x=%22400%22 y=%22225%22 text-anchor=%22middle%22>Heatmap will appear when detection starts</text></svg>'"
-                            />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer>
-            <div class="container text-center">
-                <small
-                    >People Detection Dashboard &copy; 2024 | Academic
-                    Project</small
-                >
-            </div>
-        </footer>
-
-        <!-- Alert Sound (Hidden Audio Element) -->
-        <audio id="alert-sound" preload="auto">
-            <source
-                src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdX2Onq2lkoVzXVRXYXOHmqaokHZgTkRETF1xiZ+sp5R8ZE9BPUFRaIGXpamcgmZPPjg8Sl53j6OqoYpwWEQ5N0JVcIudp6aVe2BLPT1FWHaQo6mgiXJZRDs8S2J+lqOomnxiTEA/SV97laKomH5lTkRAR1d3j5+lmoBnUEZFTFt3i5qhn4NtWE1LT1p0hZSdnoVwXlVTVF1whJGZl4NwYFhXW2R1hI6Wk4RyZF5cYGt9ipCRhXZrZGNkbHmFi4+JfHJram1xeYKHioV7c21tbHB5gYaIhX14c3FwcXZ8gISDgHx3dHNzdXl9gIGAfnp3dXV2eHt+f399e3l3d3h5e31+fn17enh4eXp7fH19fHt6eXl5ent8fHx8e3p5eXl6e3x8fHx7enp6ent7fHx8e3t6enp6e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7fHx8fHx7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7e3t7"
-                type="audio/wav"
-            />
-        </audio>
-
-        <!-- Bootstrap JS -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-
-        <script>
-            // ==================== Configuration ====================
-            const API_BASE = "/api";
-            const UPDATE_INTERVAL = 1000; // 1 second
-            const HEATMAP_INTERVAL = 5000; // 5 seconds
-            const MAX_HISTORY_POINTS = 60; // Show last 60 data points on chart
-
-            // ==================== State ====================
-            let soundEnabled = true;
-            let alertDismissed = false;
-            let zoneBarChart = null;
-            let countLineChart = null;
-            let historyData = [];
-            let ws = null;
-
-            // ==================== Initialize Charts ====================
-            function initCharts() {
-                // Zone Bar Chart
-                const zoneCtx = document
-                    .getElementById("zoneBarChart")
-                    .getContext("2d");
-                zoneBarChart = new Chart(zoneCtx, {
-                    type: "bar",
-                    data: {
-                        labels: [],
-                        datasets: [
-                            {
-                                label: "Current Count",
-                                data: [],
-                                backgroundColor: [
-                                    "rgba(46, 196, 182, 0.8)",
-                                    "rgba(67, 97, 238, 0.8)",
-                                    "rgba(255, 159, 28, 0.8)",
-                                    "rgba(231, 29, 54, 0.8)",
-                                    "rgba(114, 9, 183, 0.8)",
-                                    "rgba(0, 245, 212, 0.8)",
-                                ],
-                                borderColor: [
-                                    "rgba(46, 196, 182, 1)",
-                                    "rgba(67, 97, 238, 1)",
-                                    "rgba(255, 159, 28, 1)",
-                                    "rgba(231, 29, 54, 1)",
-                                    "rgba(114, 9, 183, 1)",
-                                    "rgba(0, 245, 212, 1)",
-                                ],
-                                borderWidth: 2,
-                                borderRadius: 8,
-                            },
-                        ],
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { stepSize: 1 },
-                            },
-                        },
-                    },
-                });
-
-                // Count Line Chart
-                const countCtx = document
-                    .getElementById("countLineChart")
-                    .getContext("2d");
-                countLineChart = new Chart(countCtx, {
-                    type: "line",
-                    data: {
-                        labels: [],
-                        datasets: [
-                            {
-                                label: "People Count",
-                                data: [],
-                                borderColor: "rgba(67, 97, 238, 1)",
-                                backgroundColor: "rgba(67, 97, 238, 0.1)",
-                                borderWidth: 3,
-                                fill: true,
-                                tension: 0.4,
-                                pointRadius: 0,
-                                pointHoverRadius: 6,
-                            },
-                        ],
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { display: false },
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { stepSize: 1 },
-                            },
-                            x: {
-                                display: true,
-                                ticks: {
-                                    maxTicksLimit: 10,
-                                    maxRotation: 0,
-                                },
-                            },
-                        },
-                        interaction: {
-                            intersect: false,
-                            mode: "index",
-                        },
-                    },
-                });
-            }
-
-            // ==================== API Functions ====================
-            async function fetchCount() {
-                try {
-                    const response = await fetch(`${API_BASE}/count`);
-                    const data = await response.json();
-
-                    document.getElementById("total-count").textContent =
-                        data.total_count;
-
-                    if (data.timestamp) {
-                        const time = new Date(
-                            data.timestamp
-                        ).toLocaleTimeString();
-                        document.getElementById("last-update").textContent =
-                            time;
-                    }
-
-                    updateStatus(data.detection_running);
-                } catch (error) {
-                    console.error("Error fetching count:", error);
-                    updateStatus(false);
-                }
-            }
-
-            async function fetchZones() {
-                try {
-                    const response = await fetch(`${API_BASE}/zones`);
-                    const data = await response.json();
-
-                    updateZoneCards(data.zones);
-                    updateZoneChart(data.zones);
-                } catch (error) {
-                    console.error("Error fetching zones:", error);
-                }
-            }
-
-            async function fetchAlerts() {
-                try {
-                    const response = await fetch(`${API_BASE}/alerts`);
-                    const data = await response.json();
-
-                    document.getElementById("global-threshold").value =
-                        data.global_threshold;
-
-                    if (data.has_alerts && !alertDismissed) {
-                        showAlert(data.alerts);
-                    } else if (!data.has_alerts) {
-                        hideAlert();
-                        alertDismissed = false;
-                    }
-                } catch (error) {
-                    console.error("Error fetching alerts:", error);
-                }
-            }
-
-            async function fetchHistory() {
-                try {
-                    const response = await fetch(
-                        `${API_BASE}/history?limit=${MAX_HISTORY_POINTS}`
-                    );
-                    const data = await response.json();
-
-                    updateLineChart(data.history);
-                } catch (error) {
-                    console.error("Error fetching history:", error);
-                }
-            }
-
-            // ==================== UI Update Functions ====================
-            function updateStatus(running) {
-                const indicator = document.querySelector(
-                    "#status-indicator .status-indicator"
-                );
-                const text = document.getElementById("status-text");
-
-                if (running) {
-                    indicator.classList.remove("status-stopped");
-                    indicator.classList.add("status-running");
-                    text.textContent = "Detection Running";
-                } else {
-                    indicator.classList.remove("status-running");
-                    indicator.classList.add("status-stopped");
-                    text.textContent = "Detection Stopped";
-                }
-            }
-
-            function updateZoneCards(zones) {
-                const container = document.getElementById("zones-container");
-
-                if (!zones || Object.keys(zones).length === 0) {
-                    container.innerHTML = `
-                    <div class="card stat-card text-center">
-                        <div class="text-muted">No zones defined</div>
-                    </div>
-                `;
-                    return;
-                }
-
-                let html = "";
-                for (const [zoneName, data] of Object.entries(zones)) {
-                    html += `
-                    <div class="card zone-card stat-card">
-                        <div class="stat-label">${zoneName}</div>
-                        <div class="stat-value">${data.current}</div>
-                        <small class="text-white-50">
-                            Total visitors: ${data.total_visitors}
-                        </small>
-                    </div>
-                `;
-                }
-                container.innerHTML = html;
-            }
-
-            function updateZoneChart(zones) {
-                if (!zoneBarChart) return;
-
-                const labels = Object.keys(zones);
-                const data = labels.map((zone) => zones[zone].current);
-
-                zoneBarChart.data.labels = labels;
-                zoneBarChart.data.datasets[0].data = data;
-                zoneBarChart.update("none");
-            }
-
-            function updateLineChart(history) {
-                if (!countLineChart || !history.length) return;
-
-                const labels = history.map((entry) => {
-                    const date = new Date(entry.timestamp);
-                    return date.toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                    });
-                });
-
-                const data = history.map((entry) => entry.total_count);
-
-                countLineChart.data.labels = labels;
-                countLineChart.data.datasets[0].data = data;
-                countLineChart.update("none");
-            }
-
-            function updateHeatmap() {
-                const img = document.getElementById("heatmap-image");
-                // Add timestamp to prevent caching
-                img.src = `/api/heatmap?t=${Date.now()}`;
-            }
-
-            // ==================== Alert Functions ====================
-            function showAlert(alerts) {
-                const banner = document.getElementById("alert-banner");
-                const message = document.getElementById("alert-message");
-
-                let alertText = "<strong>CROWD ALERT!</strong> ";
-                for (const [key, alert] of Object.entries(alerts)) {
-                    if (alert.type === "global") {
-                        alertText += `Total count (${alert.current}) exceeds threshold (${alert.threshold})! `;
-                    } else {
-                        alertText += `${alert.zone} (${alert.current}) exceeds threshold (${alert.threshold})! `;
-                    }
-                }
-
-                message.innerHTML = alertText;
-                banner.classList.remove("d-none");
-
-                if (soundEnabled) {
-                    playAlertSound();
-                }
-            }
-
-            function hideAlert() {
-                document.getElementById("alert-banner").classList.add("d-none");
-            }
-
-            function dismissAlert() {
-                hideAlert();
-                alertDismissed = true;
-            }
-
-            function playAlertSound() {
-                const sound = document.getElementById("alert-sound");
-                sound.currentTime = 0;
-                sound.play().catch(() => {});
-            }
-
-            function toggleSound() {
-                soundEnabled = !soundEnabled;
-                const btn = document.getElementById("sound-toggle");
-                btn.innerHTML = soundEnabled
-                    ? '<i class="bi bi-volume-up"></i>'
-                    : '<i class="bi bi-volume-mute"></i>';
-            }
-
-            // ==================== Action Functions ====================
-            async function setThreshold() {
-                const threshold = parseInt(
-                    document.getElementById("global-threshold").value
-                );
-                if (isNaN(threshold) || threshold < 1) {
-                    alert("Please enter a valid threshold (minimum 1)");
-                    return;
-                }
-
-                try {
-                    const response = await fetch(
-                        `${API_BASE}/alerts/threshold?global_threshold=${threshold}`,
-                        { method: "POST" }
-                    );
-                    const data = await response.json();
-
-                    if (data.success) {
-                        alertDismissed = false;
-                        fetchAlerts();
-                    }
-                } catch (error) {
-                    console.error("Error setting threshold:", error);
-                }
-            }
-
-            async function resetHeatmap() {
-                try {
-                    await fetch(`${API_BASE}/heatmap/reset`, {
-                        method: "POST",
-                    });
-                    updateHeatmap();
-                } catch (error) {
-                    console.error("Error resetting heatmap:", error);
-                }
-            }
-
-            // ==================== WebSocket Connection (Optional) ====================
-            function connectWebSocket() {
-                const protocol =
-                    window.location.protocol === "https:" ? "wss:" : "ws:";
-                const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-                try {
-                    ws = new WebSocket(wsUrl);
-
-                    ws.onmessage = (event) => {
-                        const data = JSON.parse(event.data);
-
-                        document.getElementById("total-count").textContent =
-                            data.total_count;
-
-                        if (data.timestamp) {
-                            const time = new Date(
-                                data.timestamp
-                            ).toLocaleTimeString();
-                            document.getElementById("last-update").textContent =
-                                time;
-                        }
-
-                        updateZoneCards(data.zones);
-                        updateZoneChart(data.zones);
-
-                        if (
-                            Object.keys(data.alerts).length > 0 &&
-                            !alertDismissed
-                        ) {
-                            showAlert(data.alerts);
-                        }
-                    };
-
-                    ws.onclose = () => {
-                        console.log(
-                            "WebSocket closed, falling back to polling"
-                        );
-                        startPolling();
-                    };
-
-                    ws.onerror = () => {
-                        console.log("WebSocket error, falling back to polling");
-                        ws.close();
-                    };
-                } catch (error) {
-                    console.log("WebSocket not available, using polling");
-                    startPolling();
-                }
-            }
-
-            // ==================== Polling ====================
-            function startPolling() {
-                // Initial fetch
-                fetchCount();
-                fetchZones();
-                fetchAlerts();
-                fetchHistory();
-                updateHeatmap();
-
-                // Set up intervals
-                setInterval(() => {
-                    fetchCount();
-                    fetchZones();
-                    fetchAlerts();
-                }, UPDATE_INTERVAL);
-
-                setInterval(fetchHistory, 5000); // Update history every 5 seconds
-                setInterval(updateHeatmap, HEATMAP_INTERVAL);
-            }
-
-            // ==================== Initialization ====================
-            document.addEventListener("DOMContentLoaded", () => {
-                initCharts();
-
-                // Check authentication
-                checkAuth();
-
-                // Try WebSocket first, fall back to polling
-                // For simplicity, we'll use polling which is more reliable
-                startPolling();
-
-                console.log("Dashboard initialized");
-            });
-
-            // ==================== Authentication ====================
-            function checkAuth() {
-                const token = localStorage.getItem("auth_token");
-                const username = localStorage.getItem("username");
-                const userRole = localStorage.getItem("user_role");
-
-                if (token && username) {
-                    // User is logged in
-                    document.getElementById("username-display").textContent =
-                        username;
-                    document
-                        .getElementById("user-info")
-                        .classList.remove("d-none");
-                    document
-                        .getElementById("logout-btn")
-                        .classList.remove("d-none");
-                    document
-                        .getElementById("login-link")
-                        .classList.add("d-none");
-
-                    // Show admin link for admins
-                    if (userRole === "admin") {
-                        document
-                            .getElementById("admin-link")
-                            .classList.remove("d-none");
-                    }
-                }
-            }
-
-            function logout() {
-                const token = localStorage.getItem("auth_token");
-
-                // Call logout endpoint
-                if (token) {
-                    fetch(`${API_BASE}/auth/logout`, {
-                        method: "POST",
-                        headers: {
-                            Authorization: `Bearer ${token}`,
-                            "Content-Type": "application/json",
-                        },
-                    }).catch(console.error);
-                }
-
-                // Clear local storage
-                localStorage.removeItem("auth_token");
-                localStorage.removeItem("user_id");
-                localStorage.removeItem("username");
-                localStorage.removeItem("user_role");
-
-                // Reload page
-                window.location.reload();
-            }
-        </script>
+            <footer class="d-flex flex-wrap justify-content-between gap-2 cc-muted cc-small mt-4 pt-3 border-top">
+                <span>CrowdCount <span id="version"></span></span>
+                <span>
+                    <a href="/docs">API reference</a> ·
+                    <a href="https://github.com/nvmaditya/CrowdCount" rel="noopener">GitHub</a>
+                </span>
+            </footer>
+        </main>
+
+        <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+        <script src="vendor/chart.js/chart.umd.min.js"></script>
+        <script src="assets/js/common.js"></script>
+        <script src="assets/js/dashboard.js"></script>
     </body>
 </html>

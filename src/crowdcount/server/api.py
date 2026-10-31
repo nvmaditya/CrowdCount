@@ -24,6 +24,7 @@ from crowdcount import __version__
 from crowdcount.server.deps import Services, client_ip, current_user, get_services
 from crowdcount.server.models import LogAction, LogCategory, TokenData
 from crowdcount.server.reports import summary_report
+from crowdcount.zones import ZoneConfigError, load_zones
 
 router = APIRouter(prefix="/api", tags=["Dashboard"])
 
@@ -61,6 +62,16 @@ def count(services: Services = Depends(get_services)) -> dict:
 def zones(services: Services = Depends(get_services)) -> dict:
     """Per-zone occupancy, unique track IDs seen, and threshold."""
     return {"zones": services.state.zone_stats(), "timestamp": services.state.last_update}
+
+
+@router.get("/zones/layout")
+def zones_layout(services: Services = Depends(get_services)) -> dict:
+    """Zone definitions (name, RGB colour, enabled, polygon) from the watched zones file."""
+    try:
+        zones = load_zones(services.zones_file)
+    except ZoneConfigError as exc:
+        raise HTTPException(status_code=500, detail=f"zones file is invalid: {exc}") from exc
+    return {"zones": [z.to_dict() for z in zones]}
 
 
 @router.get("/history")

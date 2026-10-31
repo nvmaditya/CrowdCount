@@ -1,757 +1,325 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
     <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Admin Panel - People Detection Dashboard</title>
-
-        <!-- Bootstrap 5 CSS -->
-        <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
-            rel="stylesheet"
-        />
-        <!-- Bootstrap Icons -->
-        <link
-            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css"
-            rel="stylesheet"
-        />
-
-        <style>
-            :root {
-                --primary-color: #4361ee;
-                --dark-color: #1a1a2e;
-                --sidebar-width: 250px;
-            }
-
-            body {
-                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-                background-color: #f8f9fa;
-            }
-
-            .admin-wrapper {
-                display: flex;
-                min-height: 100vh;
-            }
-
-            .sidebar {
-                width: var(--sidebar-width);
-                background: linear-gradient(180deg, var(--dark-color), #16213e);
-                color: white;
-                position: fixed;
-                height: 100vh;
-                overflow-y: auto;
-                z-index: 1000;
-            }
-
-            .sidebar-header {
-                padding: 1.5rem 1rem;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            }
-
-            .sidebar-nav {
-                padding: 1rem 0;
-            }
-
-            .nav-item {
-                padding: 0.75rem 1.5rem;
-                cursor: pointer;
-                transition: all 0.3s;
-                border-left: 3px solid transparent;
-            }
-
-            .nav-item:hover,
-            .nav-item.active {
-                background: rgba(255, 255, 255, 0.1);
-                border-left-color: #4361ee;
-            }
-
-            .nav-item i {
-                margin-right: 0.75rem;
-                width: 20px;
-            }
-
-            .main-content {
-                margin-left: var(--sidebar-width);
-                flex: 1;
-                padding: 2rem;
-                width: calc(100% - var(--sidebar-width));
-            }
-
-            .top-bar {
-                background: white;
-                padding: 1rem 1.5rem;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-                margin-bottom: 2rem;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-            }
-
-            .card {
-                border: none;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-                margin-bottom: 1.5rem;
-            }
-
-            .card-header {
-                background: white;
-                border-bottom: 1px solid #e0e0e0;
-                padding: 1rem 1.5rem;
-                font-weight: 600;
-            }
-
-            .section {
-                display: none;
-            }
-
-            .section.active {
-                display: block;
-            }
-
-            .btn-action {
-                border-radius: 5px;
-                padding: 0.375rem 1rem;
-                font-size: 0.9rem;
-            }
-
-            .table-actions {
-                white-space: nowrap;
-            }
-
-            .badge-role {
-                padding: 0.35em 0.65em;
-                font-size: 0.85em;
-            }
-
-            .modal-header {
-                background: linear-gradient(135deg, var(--dark-color), #16213e);
-                color: white;
-            }
-
-            .stat-card {
-                text-align: center;
-                padding: 1.5rem;
-            }
-
-            .stat-value {
-                font-size: 2.5rem;
-                font-weight: 700;
-                color: var(--primary-color);
-            }
-
-            .stat-label {
-                color: #6c757d;
-                text-transform: uppercase;
-                font-size: 0.85rem;
-                letter-spacing: 1px;
-            }
-
-            .log-entry {
-                border-left: 3px solid #dee2e6;
-                padding: 0.75rem;
-                margin-bottom: 0.5rem;
-                background: #f8f9fa;
-                border-radius: 5px;
-            }
-
-            .log-entry.AUTH {
-                border-left-color: #0d6efd;
-            }
-            .log-entry.CONFIG {
-                border-left-color: #198754;
-            }
-            .log-entry.ALERT {
-                border-left-color: #dc3545;
-            }
-            .log-entry.SYSTEM {
-                border-left-color: #6c757d;
-            }
-
-            .camera-item,
-            .zone-item {
-                border: 1px solid #dee2e6;
-                border-radius: 8px;
-                padding: 1rem;
-                margin-bottom: 1rem;
-                transition: all 0.3s;
-            }
-
-            .camera-item:hover,
-            .zone-item:hover {
-                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-                transform: translateY(-2px);
-            }
-
-            .form-floating > label {
-                padding: 1rem 0.75rem;
-            }
-        </style>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CrowdCount · Admin</title>
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <script src="assets/js/theme-init.js"></script>
+        <link rel="stylesheet" href="vendor/bootstrap/bootstrap.min.css" />
+        <link rel="stylesheet" href="vendor/bootstrap-icons/bootstrap-icons.min.css" />
+        <link rel="stylesheet" href="assets/css/theme.css" />
     </head>
-    <body>
-        <div class="admin-wrapper">
-            <!-- Sidebar -->
-            <div class="sidebar">
-                <div class="sidebar-header">
-                    <h5 class="mb-0">
-                        <i class="bi bi-shield-check me-2"></i>Admin Panel
-                    </h5>
-                    <small id="admin-username" class="text-white-50"></small>
+    <body data-requires-auth="1">
+        <div class="cc-shell">
+            <aside class="cc-sidebar" id="sidebar">
+                <a class="cc-brand px-2" href="./"><img src="favicon.svg" class="cc-logo" alt="" />CrowdCount</a>
+                <nav class="cc-nav" aria-label="Admin sections">
+                    <button data-section="overview"><i class="bi bi-grid-1x2"></i>Overview</button>
+                    <div class="cc-nav-label">Monitoring</div>
+                    <button data-section="zones"><i class="bi bi-bounding-box-circles"></i>Zones</button>
+                    <button data-section="thresholds"><i class="bi bi-bell"></i>Thresholds</button>
+                    <button data-section="cameras"><i class="bi bi-camera-video"></i>Cameras</button>
+                    <div class="cc-nav-label">Administration</div>
+                    <button data-section="users"><i class="bi bi-people"></i>Users</button>
+                    <button data-section="logs"><i class="bi bi-journal-text"></i>Activity log</button>
+                    <button data-section="alerts"><i class="bi bi-exclamation-triangle"></i>Alert history</button>
+                    <div class="cc-nav-label">You</div>
+                    <button data-section="account"><i class="bi bi-person-gear"></i>Account</button>
+                </nav>
+                <div class="cc-nav mt-auto">
+                    <a href="./"><i class="bi bi-display"></i>Live dashboard</a>
+                    <a href="/docs"><i class="bi bi-braces"></i>API reference</a>
+                    <button id="signout"><i class="bi bi-box-arrow-right"></i>Sign out</button>
                 </div>
+            </aside>
 
-                <div class="sidebar-nav">
-                    <div class="nav-item active" data-section="dashboard">
-                        <i class="bi bi-speedometer2"></i>Dashboard
+            <div class="cc-main">
+                <header class="cc-topbar">
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-sm btn-outline-secondary d-lg-none" id="menu" aria-label="Menu"><i class="bi bi-list"></i></button>
+                        <h1 class="h5 mb-0" id="section-title">Overview</h1>
                     </div>
-                    <div class="nav-item" data-section="users">
-                        <i class="bi bi-people"></i>User Management
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="cc-muted cc-small d-none d-sm-inline" id="whoami"></span>
+                        <button class="btn btn-sm btn-outline-secondary" data-cc-theme-toggle></button>
                     </div>
-                    <div class="nav-item" data-section="cameras">
-                        <i class="bi bi-camera-video"></i>Cameras
-                    </div>
-                    <div class="nav-item" data-section="zones">
-                        <i class="bi bi-geo-alt"></i>Zones
-                    </div>
-                    <div class="nav-item" data-section="thresholds">
-                        <i class="bi bi-bell"></i>Thresholds
-                    </div>
-                    <div class="nav-item" data-section="logs">
-                        <i class="bi bi-journal-text"></i>Activity Logs
-                    </div>
-                    <div class="nav-item" data-section="alerts">
-                        <i class="bi bi-exclamation-triangle"></i>Alert History
-                    </div>
-                    <hr style="border-color: rgba(255, 255, 255, 0.1)" />
-                    <div
-                        class="nav-item"
-                        onclick="window.location.href='index.html'"
-                    >
-                        <i class="bi bi-graph-up"></i>View Dashboard
-                    </div>
-                    <div class="nav-item" onclick="logout()">
-                        <i class="bi bi-box-arrow-right"></i>Logout
-                    </div>
-                </div>
-            </div>
+                </header>
 
-            <!-- Main Content -->
-            <div class="main-content">
-                <!-- Top Bar -->
-                <div class="top-bar">
-                    <div>
-                        <h4 class="mb-0" id="section-title">
-                            Dashboard Overview
-                        </h4>
-                        <small class="text-muted">Admin Control Panel</small>
-                    </div>
-                    <div>
-                        <button
-                            class="btn btn-outline-primary btn-sm"
-                            onclick="refreshCurrentSection()"
-                        >
-                            <i class="bi bi-arrow-clockwise"></i> Refresh
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Dashboard Section -->
-                <div id="dashboard-section" class="section active">
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-3">
-                            <div class="card stat-card">
-                                <div class="stat-value" id="stat-users">0</div>
-                                <div class="stat-label">Total Users</div>
+                <!-- Overview -->
+                <section class="cc-section" id="section-overview">
+                    <div class="row g-3 mb-3" id="overview-stats"></div>
+                    <div class="row g-3">
+                        <div class="col-xl-5">
+                            <div class="cc-card h-100">
+                                <div class="cc-card-header"><h2 class="cc-card-title"><i class="bi bi-cpu"></i>Detector</h2></div>
+                                <div class="cc-card-body" id="overview-detector"></div>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="card stat-card">
-                                <div class="stat-value" id="stat-cameras">
-                                    0
+                        <div class="col-xl-7">
+                            <div class="cc-card h-100">
+                                <div class="cc-card-header">
+                                    <h2 class="cc-card-title"><i class="bi bi-clock-history"></i>Recent activity</h2>
+                                    <a href="#logs" class="cc-small">View all</a>
                                 </div>
-                                <div class="stat-label">Cameras</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card stat-card">
-                                <div class="stat-value" id="stat-zones">0</div>
-                                <div class="stat-label">Zones</div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card stat-card">
-                                <div class="stat-value" id="stat-logs">0</div>
-                                <div class="stat-label">Activity Logs</div>
+                                <div id="overview-activity"></div>
                             </div>
                         </div>
                     </div>
+                </section>
 
-                    <div class="row">
-                        <div class="col-md-12">
-                            <div class="card">
-                                <div class="card-header">
-                                    <i class="bi bi-activity me-2"></i>Recent
-                                    Activity
-                                </div>
-                                <div
-                                    class="card-body"
-                                    id="recent-activity"
-                                    style="max-height: 400px; overflow-y: auto"
-                                >
-                                    <div class="text-center text-muted">
-                                        Loading...
+                <!-- Zones -->
+                <section class="cc-section" id="section-zones">
+                    <div class="row g-3">
+                        <div class="col-xl-8">
+                            <div class="cc-card">
+                                <div class="cc-card-header flex-wrap">
+                                    <h2 class="cc-card-title"><i class="bi bi-pencil-square"></i>Draw on the live frame</h2>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <button class="btn btn-sm btn-primary" id="zone-new"><i class="bi bi-plus-lg"></i> New zone</button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="zone-undo" disabled><i class="bi bi-arrow-90deg-left"></i> Undo point</button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="zone-cancel" disabled>Cancel</button>
+                                        <button class="btn btn-sm btn-outline-secondary" id="zone-reload" title="Grab a fresh frame" aria-label="Grab a fresh frame"><i class="bi bi-arrow-clockwise"></i></button>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Users Section -->
-                <div id="users-section" class="section">
-                    <div class="card">
-                        <div
-                            class="card-header d-flex justify-content-between align-items-center"
-                        >
-                            <span
-                                ><i class="bi bi-people me-2"></i>User
-                                Management</span
-                            >
-                            <button
-                                class="btn btn-primary btn-sm"
-                                onclick="showAddUserModal()"
-                            >
-                                <i class="bi bi-plus-circle me-1"></i>Add User
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Username</th>
-                                            <th>Role</th>
-                                            <th>Created</th>
-                                            <th>Last Login</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="users-table-body">
-                                        <tr>
-                                            <td colspan="5" class="text-center">
-                                                Loading...
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Cameras Section -->
-                <div id="cameras-section" class="section">
-                    <div class="card">
-                        <div
-                            class="card-header d-flex justify-content-between align-items-center"
-                        >
-                            <span
-                                ><i class="bi bi-camera-video me-2"></i>Camera
-                                Management</span
-                            >
-                            <button
-                                class="btn btn-primary btn-sm"
-                                onclick="showAddCameraModal()"
-                            >
-                                <i class="bi bi-plus-circle me-1"></i>Add Camera
-                            </button>
-                        </div>
-                        <div class="card-body" id="cameras-container">
-                            <div class="text-center text-muted">Loading...</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Zones Section -->
-                <div id="zones-section" class="section">
-                    <div class="card">
-                        <div
-                            class="card-header d-flex justify-content-between align-items-center"
-                        >
-                            <span
-                                ><i class="bi bi-geo-alt me-2"></i>Zone
-                                Management</span
-                            >
-                            <button
-                                class="btn btn-primary btn-sm"
-                                onclick="showAddZoneModal()"
-                            >
-                                <i class="bi bi-plus-circle me-1"></i>Add Zone
-                            </button>
-                        </div>
-                        <div class="card-body" id="zones-container">
-                            <div class="text-center text-muted">Loading...</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Thresholds Section -->
-                <div id="thresholds-section" class="section">
-                    <div class="card">
-                        <div class="card-header">
-                            <i class="bi bi-bell me-2"></i>Threshold
-                            Configuration
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6>Global Threshold</h6>
-                                            <p class="text-muted">
-                                                Alert when total people count
-                                                exceeds this value
-                                            </p>
-                                            <div class="input-group">
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    id="global-threshold-input"
-                                                    min="1"
-                                                    placeholder="Enter threshold"
-                                                />
-                                                <button
-                                                    class="btn btn-primary"
-                                                    onclick="updateGlobalThreshold()"
-                                                >
-                                                    Update
-                                                </button>
-                                            </div>
+                                <div class="cc-card-body">
+                                    <div id="zone-editor"></div>
+                                    <p class="cc-muted cc-small mt-2 mb-0" id="zone-help">
+                                        Click <strong>New zone</strong>, then click to place corners. Click the first corner or
+                                        double-click to close the shape.
+                                    </p>
+                                    <form id="zone-save-form" class="row g-2 align-items-end mt-2" hidden>
+                                        <div class="col-sm-6">
+                                            <label class="form-label cc-small fw-semibold" for="zone-name">Zone name</label>
+                                            <input class="form-control" id="zone-name" maxlength="50" required />
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="card">
-                                        <div class="card-body">
-                                            <h6>Zone Thresholds</h6>
-                                            <p class="text-muted">
-                                                Configure per-zone thresholds
-                                            </p>
-                                            <div id="zone-thresholds-container">
-                                                <div class="text-muted">
-                                                    Loading zones...
-                                                </div>
-                                            </div>
+                                        <div class="col-auto">
+                                            <label class="form-label cc-small fw-semibold" for="zone-color">Colour</label>
+                                            <input type="color" class="form-control form-control-color" id="zone-color" value="#2dd4bf" />
                                         </div>
+                                        <div class="col-auto">
+                                            <button class="btn btn-primary" type="submit">Save zone</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-4">
+                            <div class="cc-card">
+                                <div class="cc-card-header"><h2 class="cc-card-title"><i class="bi bi-list-ul"></i>Zones</h2></div>
+                                <div id="zone-list"></div>
+                                <div class="cc-card-body border-top cc-muted cc-small">
+                                    Saved to <span class="cc-code" id="zones-file"></span>. A running detector picks up
+                                    changes within a second.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Thresholds -->
+                <section class="cc-section" id="section-thresholds">
+                    <div class="row g-3">
+                        <div class="col-lg-5">
+                            <div class="cc-card">
+                                <div class="cc-card-header"><h2 class="cc-card-title"><i class="bi bi-people"></i>Total occupancy</h2></div>
+                                <form class="cc-card-body" id="global-threshold-form">
+                                    <p class="cc-muted cc-small">Alert when more people than this are visible in the whole frame.</p>
+                                    <div class="d-flex gap-2">
+                                        <input type="number" min="1" class="form-control" id="global-threshold" style="max-width: 10rem" required aria-label="Total threshold" />
+                                        <button class="btn btn-primary" type="submit">Save</button>
                                     </div>
-                                </div>
+                                </form>
+                            </div>
+                        </div>
+                        <div class="col-lg-7">
+                            <div class="cc-card">
+                                <div class="cc-card-header"><h2 class="cc-card-title"><i class="bi bi-bounding-box"></i>Per-zone thresholds</h2></div>
+                                <div id="zone-thresholds"></div>
                             </div>
                         </div>
                     </div>
-                </div>
+                    <p class="cc-muted cc-small mt-3 mb-0">
+                        Alerts fire once when a count goes above its threshold and are recorded in Alert history. Changes apply to the
+                        running detector immediately.
+                    </p>
+                </section>
 
-                <!-- Activity Logs Section -->
-                <div id="logs-section" class="section">
-                    <div class="card">
-                        <div
-                            class="card-header d-flex justify-content-between align-items-center"
-                        >
-                            <span
-                                ><i class="bi bi-journal-text me-2"></i>Activity
-                                Logs</span
-                            >
-                            <div>
-                                <button
-                                    class="btn btn-success btn-sm me-2"
-                                    onclick="exportLogs('csv')"
-                                >
-                                    <i class="bi bi-download me-1"></i>Export
-                                    CSV
-                                </button>
-                                <button
-                                    class="btn btn-danger btn-sm"
-                                    onclick="exportLogs('pdf')"
-                                >
-                                    <i class="bi bi-download me-1"></i>Export
-                                    PDF
-                                </button>
-                            </div>
+                <!-- Cameras -->
+                <section class="cc-section" id="section-cameras">
+                    <div class="cc-card">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-camera-video"></i>Saved sources</h2>
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#camera-modal"><i class="bi bi-plus-lg"></i> Add camera</button>
                         </div>
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-md-3">
-                                    <select
-                                        class="form-select"
-                                        id="log-category-filter"
-                                        onchange="loadLogs()"
-                                    >
-                                        <option value="">All Categories</option>
-                                        <option value="AUTH">
-                                            Authentication
-                                        </option>
-                                        <option value="CONFIG">
-                                            Configuration
-                                        </option>
-                                        <option value="ALERT">Alerts</option>
-                                        <option value="SYSTEM">System</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <input
-                                        type="date"
-                                        class="form-control"
-                                        id="log-start-date"
-                                        onchange="loadLogs()"
-                                    />
-                                </div>
-                                <div class="col-md-3">
-                                    <input
-                                        type="date"
-                                        class="form-control"
-                                        id="log-end-date"
-                                        onchange="loadLogs()"
-                                    />
-                                </div>
-                                <div class="col-md-3">
-                                    <button
-                                        class="btn btn-outline-secondary w-100"
-                                        onclick="clearLogFilters()"
-                                    >
-                                        <i class="bi bi-x-circle me-1"></i>Clear
-                                        Filters
-                                    </button>
-                                </div>
-                            </div>
-                            <div
-                                id="logs-container"
-                                style="max-height: 600px; overflow-y: auto"
-                            >
-                                <div class="text-center text-muted">
-                                    Loading...
-                                </div>
-                            </div>
-                        </div>
+                        <div id="camera-list"></div>
                     </div>
-                </div>
+                    <p class="cc-muted cc-small mt-3 mb-0">
+                        A camera is a named video source: a webcam index, a file path, or a stream URL. Start the detector on one with
+                        <span class="cc-code">crowdcount run --camera "Name"</span>. One detector process watches one source.
+                    </p>
+                </section>
 
-                <!-- Alerts Section -->
-                <div id="alerts-section" class="section">
-                    <div class="card">
-                        <div class="card-header">
-                            <i class="bi bi-exclamation-triangle me-2"></i>Alert
-                            History
+                <!-- Users -->
+                <section class="cc-section" id="section-users">
+                    <div class="cc-card">
+                        <div class="cc-card-header">
+                            <h2 class="cc-card-title"><i class="bi bi-people"></i>Accounts</h2>
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#user-modal"><i class="bi bi-person-plus"></i> Add user</button>
                         </div>
-                        <div class="card-body">
-                            <div class="table-responsive">
-                                <table class="table table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Timestamp</th>
-                                            <th>Type</th>
-                                            <th>Threshold</th>
-                                            <th>Actual Count</th>
-                                            <th>Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="alerts-table-body">
-                                        <tr>
-                                            <td colspan="5" class="text-center">
-                                                Loading...
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead><tr><th>User</th><th>Role</th><th>Created</th><th>Last sign-in</th><th></th></tr></thead>
+                                <tbody id="user-rows"></tbody>
+                            </table>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
+                    <p class="cc-muted cc-small mt-3 mb-0">Admins can change everything here. Users can sign in to the dashboard and reset the heatmap.</p>
+                </section>
 
-        <!-- Add User Modal -->
-        <div class="modal fade" id="addUserModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="bi bi-person-plus me-2"></i>Add New User
-                        </h5>
-                        <button
-                            type="button"
-                            class="btn-close btn-close-white"
-                            data-bs-dismiss="modal"
-                        ></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="add-user-form">
-                            <div class="mb-3">
-                                <label class="form-label">Username</label>
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    id="new-username"
-                                    required
-                                />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password</label>
-                                <input
-                                    type="password"
-                                    class="form-control"
-                                    id="new-password"
-                                    required
-                                />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Role</label>
-                                <select class="form-select" id="new-role">
-                                    <option value="user">User</option>
-                                    <option value="admin">Admin</option>
+                <!-- Activity log -->
+                <section class="cc-section" id="section-logs">
+                    <div class="cc-card">
+                        <form class="cc-card-header flex-wrap" id="log-filters">
+                            <div class="d-flex gap-2 flex-wrap align-items-center">
+                                <select class="form-select form-select-sm" id="log-category" style="width: auto" aria-label="Category">
+                                    <option value="">All categories</option>
+                                    <option value="AUTH">Auth</option>
+                                    <option value="CONFIG">Config</option>
+                                    <option value="ALERT">Alerts</option>
+                                    <option value="SYSTEM">System</option>
                                 </select>
+                                <input type="date" class="form-control form-control-sm" id="log-from" style="width: auto" aria-label="From date" />
+                                <span class="cc-muted cc-small">to</span>
+                                <input type="date" class="form-control form-control-sm" id="log-to" style="width: auto" aria-label="To date" />
+                                <button class="btn btn-sm btn-outline-secondary" type="submit">Apply</button>
+                                <button class="btn btn-sm btn-link" type="reset">Reset</button>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-log-export="csv"><i class="bi bi-filetype-csv"></i> CSV</button>
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-log-export="pdf"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
                             </div>
                         </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button
-                            type="button"
-                            class="btn btn-secondary"
-                            data-bs-dismiss="modal"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            class="btn btn-primary"
-                            onclick="addUser()"
-                        >
-                            Add User
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Camera Modal -->
-        <div class="modal fade" id="addCameraModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="bi bi-camera-video me-2"></i>Add Camera
-                        </h5>
-                        <button
-                            type="button"
-                            class="btn-close btn-close-white"
-                            data-bs-dismiss="modal"
-                        ></button>
-                    </div>
-                    <div class="modal-body">
-                        <form id="add-camera-form">
-                            <div class="mb-3">
-                                <label class="form-label">Camera Name</label>
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    id="camera-name"
-                                    required
-                                />
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Source URL</label>
-                                <input
-                                    type="text"
-                                    class="form-control"
-                                    id="camera-source"
-                                    required
-                                    placeholder="e.g., 0, rtsp://..., video.mp4"
-                                />
-                                <small class="text-muted"
-                                    >Device ID (0), RTSP URL, or video file
-                                    path</small
-                                >
-                            </div>
-                            <div class="mb-3">
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        id="camera-enabled"
-                                        checked
-                                    />
-                                    <label
-                                        class="form-check-label"
-                                        for="camera-enabled"
-                                        >Enabled</label
-                                    >
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="modal-footer">
-                        <button
-                            type="button"
-                            class="btn btn-secondary"
-                            data-bs-dismiss="modal"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="button"
-                            class="btn btn-primary"
-                            onclick="addCamera()"
-                        >
-                            Add Camera
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Zone Modal -->
-        <div class="modal fade" id="addZoneModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">
-                            <i class="bi bi-geo-alt me-2"></i>Add Zone
-                        </h5>
-                        <button
-                            type="button"
-                            class="btn-close btn-close-white"
-                            data-bs-dismiss="modal"
-                        ></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-info">
-                            <i class="bi bi-info-circle me-2"></i>
-                            Zones must be created using the detector drawing
-                            mode. This modal is for reference.
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead><tr><th>Time</th><th>Category</th><th>Action</th><th>User</th><th>Details</th></tr></thead>
+                                <tbody id="log-rows"></tbody>
+                            </table>
                         </div>
-                        <p>To add a zone:</p>
-                        <ol>
-                            <li>Run the detector application</li>
-                            <li>Press 'd' to enter drawing mode</li>
-                            <li>Click to add points for the polygon</li>
-                            <li>Right-click to finish</li>
-                            <li>Press 's' to save zones</li>
-                        </ol>
+                        <div class="cc-card-body border-top d-flex justify-content-between align-items-center">
+                            <span class="cc-muted cc-small" id="log-count"></span>
+                            <button class="btn btn-sm btn-outline-secondary" id="log-more" hidden>Load more</button>
+                        </div>
                     </div>
-                    <div class="modal-footer">
-                        <button
-                            type="button"
-                            class="btn btn-secondary"
-                            data-bs-dismiss="modal"
-                        >
-                            Close
-                        </button>
+                </section>
+
+                <!-- Alert history -->
+                <section class="cc-section" id="section-alerts">
+                    <div class="cc-card">
+                        <div class="cc-card-header"><h2 class="cc-card-title"><i class="bi bi-exclamation-triangle"></i>Threshold breaches</h2></div>
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead><tr><th>Time</th><th>Scope</th><th>Count</th><th>Threshold</th><th>Status</th></tr></thead>
+                                <tbody id="alert-rows"></tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                </section>
+
+                <!-- Account -->
+                <section class="cc-section" id="section-account">
+                    <div class="row g-3">
+                        <div class="col-lg-5">
+                            <div class="cc-card">
+                                <div class="cc-card-header"><h2 class="cc-card-title"><i class="bi bi-person"></i>Profile</h2></div>
+                                <div class="cc-card-body" id="profile"></div>
+                            </div>
+                        </div>
+                        <div class="col-lg-7">
+                            <div class="cc-card">
+                                <div class="cc-card-header"><h2 class="cc-card-title"><i class="bi bi-key"></i>Change password</h2></div>
+                                <form class="cc-card-body" id="password-form">
+                                    <input type="text" id="pw-username" name="username" autocomplete="username" class="d-none" readonly tabindex="-1" aria-hidden="true" />
+                                    <div class="mb-3">
+                                        <label class="form-label cc-small fw-semibold" for="pw-current">Current password</label>
+                                        <input type="password" class="form-control" id="pw-current" autocomplete="current-password" required />
+                                    </div>
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-sm-6">
+                                            <label class="form-label cc-small fw-semibold" for="pw-new">New password</label>
+                                            <input type="password" class="form-control" id="pw-new" minlength="8" autocomplete="new-password" required />
+                                        </div>
+                                        <div class="col-sm-6">
+                                            <label class="form-label cc-small fw-semibold" for="pw-repeat">Repeat new password</label>
+                                            <input type="password" class="form-control" id="pw-repeat" minlength="8" autocomplete="new-password" required />
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary" type="submit">Update password</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
 
-        <!-- Bootstrap JS -->
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- Add user -->
+        <div class="modal fade" id="user-modal" tabindex="-1" aria-labelledby="user-modal-title">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" id="user-form">
+                    <div class="modal-header"><h2 class="modal-title h5" id="user-modal-title">Add user</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label cc-small fw-semibold" for="new-username">Username</label>
+                            <input class="form-control" id="new-username" name="new-username" autocomplete="off" minlength="3" maxlength="50" pattern="[A-Za-z0-9_.@\-]+" required />
+                            <div class="form-text">Letters, digits and _ . @ -</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label cc-small fw-semibold" for="new-password">Password</label>
+                            <input type="password" class="form-control" id="new-password" minlength="8" autocomplete="new-password" required />
+                            <div class="form-text">At least 8 characters.</div>
+                        </div>
+                        <div>
+                            <label class="form-label cc-small fw-semibold" for="new-role">Role</label>
+                            <select class="form-select" id="new-role">
+                                <option value="user">User: dashboard access</option>
+                                <option value="admin">Admin: full control</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Create user</button></div>
+                </form>
+            </div>
+        </div>
 
-        <script src="admin.js"></script>
+        <!-- Add camera -->
+        <div class="modal fade" id="camera-modal" tabindex="-1" aria-labelledby="camera-modal-title">
+            <div class="modal-dialog modal-dialog-centered">
+                <form class="modal-content" id="camera-form">
+                    <div class="modal-header"><h2 class="modal-title h5" id="camera-modal-title">Add camera</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label cc-small fw-semibold" for="camera-name">Name</label>
+                            <input class="form-control" id="camera-name" maxlength="100" placeholder="Main entrance" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label cc-small fw-semibold" for="camera-source">Source</label>
+                            <input class="form-control" id="camera-source" placeholder="0, /videos/lobby.mp4 or rtsp://…" required />
+                            <div class="form-text">Webcam index, video file path, or RTSP/HTTP stream URL.</div>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="camera-enabled" checked />
+                            <label class="form-check-label" for="camera-enabled">Enabled</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Add camera</button></div>
+                </form>
+            </div>
+        </div>
+
+        <script src="vendor/bootstrap/bootstrap.bundle.min.js"></script>
+        <script src="assets/js/common.js"></script>
+        <script src="assets/js/zone-editor.js"></script>
+        <script src="assets/js/admin.js"></script>
     </body>
 </html>

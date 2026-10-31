@@ -220,9 +220,11 @@ conventions. Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-See [LICENSE](LICENSE). CrowdCount depends on [Ultralytics YOLO](https://github.com/ultralytics/ultralytics),
-which is licensed under AGPL-3.0; review its terms for your use case.
-<!-- TODO(maintainer): licensing decision pending (MIT LICENSE file vs. AGPL-3.0 Ultralytics dependency). -->
+CrowdCount is licensed under the [GNU Affero General Public License v3.0](LICENSE), the same
+license as [Ultralytics YOLO](https://github.com/ultralytics/ultralytics), which it builds on. You
+may use, modify and redistribute it. If you distribute a modified version, or run one as a
+network service for others, you must offer its source code under the same license; the
+dashboard footer links to the source. See [LICENSE](LICENSE) for the full terms.
 
 ## Credits
 

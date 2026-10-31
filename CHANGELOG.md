@@ -21,6 +21,8 @@ tool. The audit that motivated it is in [docs/refurbish-audit.md](docs/refurbish
 
 ### Breaking changes
 
+- **License is now AGPL-3.0** (was MIT), the license of the Ultralytics YOLO models and trackers
+  CrowdCount depends on.
 - **Entry points.** `run_app.py`, `detector/integrated_detector.py`,
   `people_detector_bytetrack.py` and `zone_manager.py` are replaced by `crowdcount run | demo |
   detect | serve | zones | admin` ([configuration](docs/configuration.md#commands)).

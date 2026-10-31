@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -8,6 +8,7 @@ dynamic = ["version"]
 description = "Real-time crowd monitoring: YOLOv8 person detection, multi-object tracking, polygon zones and a live web dashboard."
 readme = "README.md"
 requires-python = ">=3.10"
+license = "AGPL-3.0-only"
 license-files = ["LICENSE"]
 authors = [{ name = "Aditya Khandelwal" }]
 keywords = ["computer-vision", "yolov8", "object-tracking", "bytetrack", "crowd-counting", "fastapi"]

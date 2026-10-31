@@ -105,7 +105,7 @@ data_dir`), plus the zones file:
 | `.jwt_secret` | Generated token-signing secret, if `CROWDCOUNT_JWT_SECRET` is unset (`0600`). |
 | `config.json` | Alert rule limits and options, saved cameras, log retention. |
 | `activity_logs.json` | Sign-ins, configuration changes, alerts (capped at 20,000 entries; pruned by retention at startup). |
-| `alerts_history.json` | One record per alert raised (near or over its limit), with acknowledgement. |
+| `alerts_history.json` | One record per alert raised (near or over its limit), with acknowledgement (capped at 20,000 entries; pruned by retention at startup). |
 | `demo-zones.json` | Zones used by `crowdcount demo`. |
 | `zones.json` (default `./zones.json`) | Zone polygons for `run`/`detect`/`serve`. |
 

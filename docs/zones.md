@@ -102,9 +102,10 @@ in the *Alert above* field of the zone form on the Zones page, or on the Alerts 
 - **Over limit** when the count is **above** the limit.
 - **Near limit** from `warn_at` up to the limit, where
   `warn_at = min(limit, max(1, ceil(limit × early warning % / 100)))`. With a limit of 10 and the
-  default 80%, 8 and 9 people are near and 11 is over.
+  default 80%, 8, 9 and 10 people are near and 11 is over.
 - An alert appears at once. It drops a level or clears only after the lower condition has held
-  for 5 seconds, so a count hovering at a limit doesn't write a new record every frame.
+  for 5 seconds, so a count hovering at a limit doesn't write a new record every frame. Changing
+  the limit, switching the rule off or removing it takes effect at once.
 
 Each alert that appears is recorded once, shown on the Live page (a banner for over-limit alerts,
 if the rule shows one) and in the Alerts page's history, where admins can acknowledge it, and

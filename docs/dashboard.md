@@ -25,8 +25,8 @@ recovers by itself when it comes back.
 
 Refreshes once a second and needs no sign-in.
 
-- **Status pill**: detector state (live, starting, finished, error, offline), source and
-  throughput. Hover for model, tracker and device.
+- **Status pill**: detector state (Detecting, Starting, Finished, Error, Offline, or Disconnected
+  when the server can't be reached), source and throughput. Hover for model, tracker and device.
 - **Banner**: appears while a scope is over its limit and its rule has *Show a banner on the
   dashboard* on. It names the scope, the count and the limit, and mentions scopes that are close
   to theirs. Admins get an *Acknowledge* button; everyone gets *Review alerts*. If the detector
@@ -36,12 +36,15 @@ Refreshes once a second and needs no sign-in.
 - **Camera**: the annotated video as MJPEG (`/api/stream`, up to 15 fps), with a full-screen
   button. It disconnects while the tab is hidden, and shows an explanation instead of a black
   box when the detector isn't running.
-- **Zones**: occupancy per zone in the overlay colours, against its limit (or its share of the
-  total when it has none), with the unique-track count. Zones at the greatest risk come first.
-  Admins get an *Edit zones* link.
+- **Zones**: occupancy per zone in the overlay colours, against its limit when it has one, with
+  the unique-track count. Zones at the greatest risk come first. A zone switched off on the Zones
+  page isn't counted: it shows *Off* if it has a limit and is left out otherwise. Admins get an
+  *Edit zones* link.
 - **People over time**: total plus one line per zone, for the last 10 minutes, 30 minutes or hour
   (your choice is remembered). Each point is the peak within its window (10 seconds, 30
-  seconds or a minute).
+  seconds or a minute). While the Total occupancy rule is on, its limit is drawn as a dashed line
+  when it is at most twice the highest count shown; a limit far above the counts is listed at the
+  end of the legend instead, so the lines keep the full height of the chart.
 - **Heatmap**: where people have been since the run started or the last reset, blended over the
   latest frame. Signed-in users can reset it.
 - **Recent events**: the five latest alert records, with a link to the Alerts page. Only alert
@@ -53,8 +56,8 @@ Refreshes once a second and needs no sign-in.
 
 What is at risk, what fired, and the rules behind it.
 
-- **Risk right now**: one card per scope that has a rule (Total occupancy and any zones): the count
-  against its limit, and a marker where the early warning starts.
+- **Risk right now**: one card per scope whose rule is on (Total occupancy and any zones that are
+  being counted): the count against its limit, and a marker where the early warning starts.
 - **Active now**: alerts that are open this moment. They clear on their own when counts drop
   back.
 - **Alert rules**: one per scope, either **Total occupancy** (everyone in the frame) or a zone.
@@ -68,9 +71,9 @@ What is at risk, what fired, and the rules behind it.
   off, but not removed). Changes apply to the running detector at once and are saved. Everyone
   else sees the rules read-only. A zone's limit can also be set when drawing it on the
   [Zones](#zones) page.
-- **History**: every recorded alert, filterable (all, needs review, acknowledged) and exportable
-  as CSV, with an *Acknowledge* button for admins. History survives restarts. The name of the admin who
-  acknowledged an alert is shown to admins only.
+- **History**: the latest 500 alert records, filterable (all, needs review, acknowledged) and
+  exportable as CSV, with an *Acknowledge* button for admins. History survives restarts. The name
+  of the admin who acknowledged an alert is shown to admins only.
 
 ### Alert levels
 
@@ -78,7 +81,10 @@ What is at risk, what fired, and the rules behind it.
 | --- | --- | --- |
 | **Over limit** | count > limit | red |
 | **Near limit** | count ≥ `warn_at` and ≤ limit | amber |
-| **Normal** | anything lower, or the rule is off | none |
+| **Normal** | anything lower | grey outline |
+
+A scope whose rule is switched off raises no alerts and shows *Off*; a zone without a rule shows
+*No limit*.
 
 `warn_at = min(limit, max(1, ceil(limit × early warning % / 100)))`. With a limit of 10 and the
 default 80%, `warn_at` is 8: 8, 9 and 10 people are *near*, and 11 is *over*. A limit of 1 gives
@@ -89,8 +95,8 @@ The server works the level out once; the browser only displays it.
 **Rising is immediate, falling is not.** An alert appears as soon as a count reaches the next
 level. It drops a level, or clears, only after the lower condition has held for **5 seconds**.
 Detection counts jitter by one or two from frame to frame, and this stops a count hovering at a
-limit from writing a new record every frame. Switching a rule off, or removing it, clears its
-alert at once.
+limit from writing a new record every frame. Admin edits act at once: switching a rule off or
+removing it clears its alert, and changing its limit re-checks the count against the new limit.
 
 **Records and acknowledgement.** Each time an alert rises, one record is written to the history:
 *near* when it reached the early warning, and a second *over* record if it then crossed the
@@ -142,7 +148,8 @@ The activity log is admin-only because it holds usernames and client IP addresse
 
 Entries older than the retention period (default 30 days; change it in Settings → Data or with
 `PUT /api/admin/config/retention?retention_days=N`) are removed at each server start, along with
-old alert records. The log is also capped at 20,000 entries.
+old alert records. The activity log and the alert records are also capped at 20,000 entries
+each; the oldest go first.
 
 ## First sign-in
 

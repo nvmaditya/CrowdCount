@@ -134,7 +134,15 @@ def build_parser() -> argparse.ArgumentParser:
     _add_server_args(run)
     run.set_defaults(func=cmd_run)
 
-    demo = sub.add_parser("demo", help="run on a sample video (downloaded once) with ready-made zones")
+    demo = sub.add_parser(
+        "demo",
+        help="run on a sample video (downloaded once) with ready-made zones",
+        description=(
+            "Downloads OpenCV's vtest.avi sample (8 MB, once) and runs the detector and dashboard on it, "
+            "with zones drawn for that scene in <data dir>/demo-zones.json. Demo defaults, which any flag "
+            "overrides: --model yolov8n.pt --conf 0.35 --min-area 800 --loop."
+        ),
+    )
     _add_video_args(demo, source=False)
     _add_detection_args(demo)
     _add_server_args(demo)

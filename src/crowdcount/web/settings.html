@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CrowdCount · Settings</title>
+        <meta name="description" content="Video sources, detection, users, data and the activity log" />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <script src="assets/js/theme-init.js"></script>
+        <link rel="stylesheet" href="assets/css/tokens.css" />
+        <link rel="stylesheet" href="assets/css/kit.css" />
+        <link rel="stylesheet" href="assets/css/app.css" />
+    </head>
+    <body data-requires-auth="1">
+        <div class="app">
+            <aside id="sidebar" class="sidebar"></aside>
+
+            <main class="main">
+                <header id="header" class="page-header"></header>
+
+                <div class="page narrow settings-page">
+                    <nav class="dt-tabs settings-tabs" id="settings-tabs" aria-label="Settings sections" hidden>
+                        <a href="#sources" class="dt-tab">Video sources</a>
+                        <a href="#detection" class="dt-tab">Detection</a>
+                        <a href="#users" class="dt-tab">Users</a>
+                        <a href="#data" class="dt-tab">Data</a>
+                        <a href="#activity" class="dt-tab">Activity log</a>
+                        <a href="#account" class="dt-tab">Account</a>
+                    </nav>
+
+                    <section id="sources" class="chart-card card-flush" aria-labelledby="sources-h" data-admin hidden>
+                        <div class="set-head">
+                            <div class="set-head-text">
+                                <h2 class="chart-title" id="sources-h">Video sources</h2>
+                                <p class="set-desc">Saved streams and files. A detector watches one source at a time; start it with the command shown on each row.</p>
+                            </div>
+                            <button type="button" class="ui-btn v-outline s-sm" id="source-add"></button>
+                        </div>
+                        <div class="source-list" id="source-list"></div>
+                    </section>
+
+                    <section id="detection" class="chart-card card-flush" aria-labelledby="detection-h" data-admin hidden>
+                        <div class="set-head">
+                            <div class="set-head-text">
+                                <h2 class="chart-title" id="detection-h">Detection</h2>
+                                <p class="set-desc">What the running detector uses. Change these in <span class="code">crowdcount.toml</span> or with command-line flags; they apply on the next start.</p>
+                            </div>
+                            <span class="ui-badge b-secondary">Read only</span>
+                        </div>
+                        <dl class="detect-list" id="detect-list"></dl>
+                        <div class="detect-foot">
+                            <a href="https://github.com/nvmaditya/CrowdCount/blob/main/docs/configuration.md">Configuration reference</a>
+                        </div>
+                    </section>
+
+                    <section id="users" class="chart-card card-flush" aria-labelledby="users-h" data-admin hidden>
+                        <div class="set-head">
+                            <div class="set-head-text">
+                                <h2 class="chart-title" id="users-h">Users</h2>
+                                <p class="set-desc">Admins can change everything here. Users can sign in and reset the heatmap. Anyone who can reach the dashboard can view it.</p>
+                            </div>
+                            <button type="button" class="ui-btn v-outline s-sm" id="user-add"></button>
+                        </div>
+                        <div id="user-form-slot"></div>
+                        <div class="table-scroll">
+                            <table class="dt-table users-table">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th class="col-role">Role</th>
+                                        <th class="col-last">Last sign-in</th>
+                                        <th class="col-actions"><span class="sr-only">Actions</span></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="user-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <section id="data" class="chart-card card-flush" aria-labelledby="data-h" data-admin hidden>
+                        <div class="set-head">
+                            <div class="set-head-text">
+                                <h2 class="chart-title" id="data-h">Data</h2>
+                                <p class="set-desc">Live counts, history and the heatmap stay in memory and reset when CrowdCount restarts. Accounts, settings, alerts and the activity log are kept on disk.</p>
+                            </div>
+                        </div>
+                        <form class="retention-form" id="retention-form">
+                            <div class="login-field">
+                                <label for="retention">Keep logs and alerts for</label>
+                                <div class="editor-inline">
+                                    <input id="retention" class="login-input editor-num" type="number" min="1" max="3650" step="1" inputmode="numeric" required aria-describedby="retention-unit" />
+                                    <span class="editor-unit" id="retention-unit">days</span>
+                                </div>
+                            </div>
+                            <p class="set-desc">Older entries are removed each time the server starts.</p>
+                            <button type="submit" class="ui-btn v-default s-default" id="retention-save">Save</button>
+                        </form>
+                        <div class="data-foot">
+                            <span class="data-foot-label">Stored in</span>
+                            <span class="code data-dir" id="data-dir">–</span>
+                            <span class="data-foot-grow"></span>
+                            <button type="button" class="ui-btn v-outline s-sm" id="export-csv">Export history CSV</button>
+                            <button type="button" class="ui-btn v-outline s-sm" id="export-pdf">Download PDF report</button>
+                        </div>
+                    </section>
+
+                    <section id="activity" class="section" aria-labelledby="activity-h" data-admin hidden>
+                        <div class="dt-bar">
+                            <div class="set-head-text">
+                                <h2 class="section-title" id="activity-h">Activity log</h2>
+                                <p class="set-desc">Sign-ins, changes and alerts, newest first.</p>
+                            </div>
+                            <div class="dt-bar-actions log-actions">
+                                <label for="log-category" class="sr-only">Category</label>
+                                <select id="log-category" class="login-input select-sm">
+                                    <option value="">All categories</option>
+                                    <option value="AUTH">Sign-ins</option>
+                                    <option value="CONFIG">Changes</option>
+                                    <option value="ALERT">Alerts</option>
+                                    <option value="SYSTEM">System</option>
+                                </select>
+                                <button type="button" class="ui-btn v-outline s-sm" id="log-csv">Export CSV</button>
+                                <button type="button" class="ui-btn v-outline s-sm" id="log-pdf">Export PDF</button>
+                            </div>
+                        </div>
+                        <div class="dt-table-scroll">
+                            <table class="dt-table log-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-time">Time</th>
+                                        <th class="col-cat">Category</th>
+                                        <th>What happened</th>
+                                        <th class="col-by">By</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="log-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="dt-footer">
+                            <span id="log-note"></span>
+                            <button type="button" class="ui-btn v-outline s-sm" id="log-more" hidden>Load more</button>
+                        </div>
+                    </section>
+
+                    <section id="account" class="chart-card card-flush" aria-labelledby="account-h">
+                        <div class="set-head">
+                            <div class="set-head-text">
+                                <h2 class="chart-title" id="account-h">Your account</h2>
+                                <p class="set-desc" id="account-note"></p>
+                            </div>
+                        </div>
+                        <form class="account-form" id="password-form" novalidate>
+                            <input type="text" id="pw-user" autocomplete="username" readonly tabindex="-1" aria-hidden="true" hidden />
+                            <div class="login-field">
+                                <label for="pw-now">Current password</label>
+                                <input id="pw-now" class="login-input" type="password" autocomplete="current-password" />
+                            </div>
+                            <div class="login-field">
+                                <label for="pw-new">New password</label>
+                                <input id="pw-new" class="login-input" type="password" autocomplete="new-password" placeholder="At least 8 characters" />
+                            </div>
+                            <div class="login-field">
+                                <label for="pw-again">Repeat new password</label>
+                                <input id="pw-again" class="login-input" type="password" autocomplete="new-password" />
+                            </div>
+                            <div class="account-actions">
+                                <button type="submit" class="ui-btn v-default s-default" id="pw-save">Update password</button>
+                            </div>
+                        </form>
+                    </section>
+
+                    <footer class="page-foot">
+                        <span id="footer-version">CrowdCount · AGPL-3.0</span>
+                        <span class="page-foot-links">
+                            <a href="https://github.com/nvmaditya/CrowdCount">Source code</a>
+                            <a href="https://github.com/nvmaditya/CrowdCount/tree/main/docs">Documentation</a>
+                        </span>
+                    </footer>
+                </div>
+            </main>
+        </div>
+
+        <script src="assets/js/icons.js"></script>
+        <script src="assets/js/core.js"></script>
+        <script src="assets/js/shell.js"></script>
+        <script src="assets/js/settings.js"></script>
+    </body>
+</html>

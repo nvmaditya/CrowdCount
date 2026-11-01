@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CrowdCount · Live</title>
+        <meta name="description" content="Live crowd monitoring dashboard" />
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <script src="assets/js/theme-init.js"></script>
+        <link rel="stylesheet" href="assets/css/tokens.css" />
+        <link rel="stylesheet" href="assets/css/kit.css" />
+        <link rel="stylesheet" href="assets/css/app.css" />
+    </head>
+    <body>
+        <div class="app">
+            <aside id="sidebar" class="sidebar"></aside>
+
+            <main class="main">
+                <header id="header" class="page-header"></header>
+
+                <div class="page">
+                    <div id="banner" class="banner" role="alert" hidden></div>
+
+                    <div class="grid-stats">
+                        <section class="stat-card" aria-label="People now">
+                            <span class="stat-desc">People now</span>
+                            <span class="stat-value" id="stat-now">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-now-main"></span>
+                                <span class="stat-foot-sub" id="stat-now-sub"></span>
+                            </div>
+                        </section>
+                        <section class="stat-card" aria-label="Peak this run">
+                            <span class="stat-desc">Peak this run</span>
+                            <span class="stat-value" id="stat-peak">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-peak-main"></span>
+                                <span class="stat-foot-sub" id="stat-peak-sub"></span>
+                            </div>
+                        </section>
+                        <section class="stat-card" aria-label="Total occupancy">
+                            <span class="stat-desc">Total occupancy</span>
+                            <span class="stat-value" id="stat-total">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-total-main"></span>
+                                <span class="stat-foot-sub" id="stat-total-sub"></span>
+                            </div>
+                        </section>
+                        <section class="stat-card" aria-label="Active alerts">
+                            <span class="stat-desc">Active alerts</span>
+                            <span class="stat-value" id="stat-alerts">–</span>
+                            <div class="stat-foot">
+                                <span class="stat-foot-main" id="stat-alerts-main"></span>
+                                <span class="stat-foot-sub" id="stat-alerts-sub"></span>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="row-2">
+                        <section class="chart-card card-flush" id="camera-card" aria-labelledby="camera-title">
+                            <div class="card-head">
+                                <h2 class="chart-title" id="camera-title">Camera</h2>
+                                <span class="card-meta mono" id="camera-size"></span>
+                                <span class="ui-badge b-outline live-badge" id="camera-live" hidden><span class="live-dot"></span>Live</span>
+                                <button type="button" class="ui-btn v-ghost s-icon s-icon-sm" id="camera-fullscreen" aria-label="Open full screen" title="Open full screen" hidden></button>
+                            </div>
+                            <div class="media dark" id="camera-media"></div>
+                        </section>
+
+                        <section class="chart-card card-flush" id="zones-card" aria-labelledby="zones-title">
+                            <div class="card-head">
+                                <h2 class="chart-title" id="zones-title">Zones</h2>
+                                <span class="card-meta">Most at risk first</span>
+                                <span class="card-head-end" id="zones-edit"></span>
+                            </div>
+                            <div id="zones-list"></div>
+                            <p class="zones-note" id="zones-note" hidden>Zones can overlap, so a person in two zones counts in both.</p>
+                        </section>
+                    </div>
+
+                    <div class="row-2">
+                        <section class="chart-card" aria-labelledby="chart-title">
+                            <div class="chart-head">
+                                <div>
+                                    <h2 class="chart-title" id="chart-title">People over time</h2>
+                                    <p class="chart-sub" id="chart-sub">Peak count per 10-second window</p>
+                                </div>
+                                <div class="chart-toggle" role="group" aria-label="Time range">
+                                    <button type="button" class="ct-btn" data-range="600">10 min</button>
+                                    <button type="button" class="ct-btn" data-range="1800">30 min</button>
+                                    <button type="button" class="ct-btn" data-range="3600">1 hour</button>
+                                </div>
+                            </div>
+                            <div class="legend" id="chart-legend"></div>
+                            <div class="chart-box" id="chart-box"></div>
+                        </section>
+
+                        <section class="chart-card heat-card" aria-labelledby="heat-title">
+                            <div class="chart-head">
+                                <div>
+                                    <h2 class="chart-title" id="heat-title">Heatmap</h2>
+                                    <p class="chart-sub" id="heat-sub">Builds up as people are detected</p>
+                                </div>
+                                <button type="button" class="ui-btn v-outline s-sm" id="heat-reset" hidden></button>
+                            </div>
+                            <div class="heat-media" id="heat-media"></div>
+                            <div class="heat-scale" id="heat-scale" hidden>
+                                <span>Less</span>
+                                <span class="heat-gradient"></span>
+                                <span>More</span>
+                            </div>
+                        </section>
+                    </div>
+
+                    <section class="chart-card card-flush" aria-labelledby="events-title">
+                        <div class="card-head">
+                            <h2 class="chart-title" id="events-title">Recent events</h2>
+                            <span class="card-head-end" id="events-all"></span>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="dt-table events-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-time">Time</th>
+                                        <th class="col-level">Level</th>
+                                        <th>Event</th>
+                                        <th class="col-scope">Scope</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="events-body"></tbody>
+                            </table>
+                        </div>
+                    </section>
+
+                    <footer class="page-foot">
+                        <span id="footer-version">CrowdCount · AGPL-3.0</span>
+                        <span class="page-foot-links">
+                            <a href="https://github.com/nvmaditya/CrowdCount">Source code</a>
+                            <a href="https://github.com/nvmaditya/CrowdCount/tree/main/docs">Documentation</a>
+                        </span>
+                    </footer>
+                </div>
+            </main>
+        </div>
+
+        <script src="vendor/chart.js/chart.umd.min.js"></script>
+        <script src="assets/js/icons.js"></script>
+        <script src="assets/js/core.js"></script>
+        <script src="assets/js/shell.js"></script>
+        <script src="assets/js/live.js"></script>
+    </body>
+</html>

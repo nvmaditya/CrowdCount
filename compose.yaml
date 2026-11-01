@@ -1,0 +1,21 @@
+# docker compose up --build   then open http://localhost:8080
+# Settings come from .env (copy .env.example); state persists in named volumes.
+services:
+  crowdcount:
+    build: .
+    image: crowdcount:latest
+    # Replace with e.g. ["run", "--host", "0.0.0.0", "--source", "rtsp://user:pass@camera/stream"]
+    command: ["demo", "--host", "0.0.0.0"]
+    ports:
+      - "8080:8080"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - crowdcount-data:/data
+      - crowdcount-cache:/cache
+    restart: unless-stopped
+
+volumes:
+  crowdcount-data:
+  crowdcount-cache:

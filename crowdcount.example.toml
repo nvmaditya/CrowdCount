@@ -1,0 +1,44 @@
+# CrowdCount configuration. Copy to crowdcount.toml (git-ignored) and edit.
+# Every key is optional; the values below are the built-in defaults.
+# Command-line flags override this file. Relative paths are resolved against this file.
+
+[video]
+# Video file path or stream URL (rtsp://, http://). There is no default: set it here or pass --source.
+# source = "rtsp://user:pass@192.168.1.20/stream1"
+# Restart video files when they end.
+loop = false
+# Process every Nth frame. 2 halves the work at the cost of temporal resolution.
+stride = 1
+# Pace video files at their native frame rate. Turn off for benchmarking.
+realtime = true
+
+[detection]
+# YOLO weights: a stock name (downloaded on first use) or a path to a .pt file.
+# yolo26n.pt is fastest, yolo26x.pt most accurate; yolo11*.pt and yolov8*.pt also work.
+model = "yolo26m.pt"
+# auto picks CUDA, then Apple MPS, then CPU. Or set cpu / mps / cuda:0.
+device = "auto"
+# bytetrack, botsort, or a path to an Ultralytics tracker YAML.
+tracker = "bytetrack"
+# Minimum detection confidence (0-1).
+confidence = 0.5
+# IoU threshold for non-maximum suppression.
+iou = 0.5
+# Boxes smaller than this many pixels are ignored (filters distant or spurious detections).
+min_box_area = 1500
+# Allowed box width/height ratio. People are usually taller than they are wide.
+min_aspect_ratio = 0.15
+max_aspect_ratio = 2.0
+
+[zones]
+# Zone polygons. Edited on the Zones page or `crowdcount zones edit`; reloaded live.
+file = "zones.json"
+
+[server]
+# 127.0.0.1 keeps the dashboard local. Use 0.0.0.0 to expose it on your network.
+host = "127.0.0.1"
+port = 8080
+
+[storage]
+# Users, settings, activity log and alert history (also: CROWDCOUNT_DATA_DIR).
+data_dir = "data"

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>CrowdCount · Sign in</title>
+        <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+        <script src="assets/js/theme-init.js"></script>
+        <link rel="stylesheet" href="assets/css/tokens.css" />
+        <link rel="stylesheet" href="assets/css/kit.css" />
+        <link rel="stylesheet" href="assets/css/app.css" />
+    </head>
+    <body>
+        <main class="signin">
+            <div class="signin-col">
+                <div class="signin-brand">
+                    <span id="brand-logo" class="signin-logo"></span>
+                    <span class="signin-brand-name">CrowdCount</span>
+                </div>
+
+                <div class="login-card-inner">
+                    <h1 class="login-title">Sign in</h1>
+                    <p class="login-sub">Admins manage zones, alert rules and users.</p>
+                    <form id="login-form" novalidate>
+                        <div class="login-field">
+                            <label for="username">Username</label>
+                            <input id="username" class="login-input" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
+                        </div>
+                        <div class="login-field">
+                            <label for="password">Password</label>
+                            <div class="signin-pw">
+                                <input id="password" class="login-input" type="password" autocomplete="current-password" required />
+                                <button type="button" id="toggle-password" class="ui-btn v-ghost s-icon signin-pw-toggle" aria-label="Show password"></button>
+                            </div>
+                        </div>
+                        <label class="signin-remember">
+                            <input type="checkbox" id="remember" />
+                            Keep me signed in on this device
+                        </label>
+                        <p id="message" class="signin-message" role="alert"></p>
+                        <button type="submit" id="submit" class="ui-btn v-default s-default login-full">Sign in</button>
+                    </form>
+                </div>
+
+                <details class="signin-help">
+                    <summary>First time here?</summary>
+                    <p>
+                        On first start CrowdCount creates an <span class="code">admin</span> account and prints its
+                        password once in the server log. To choose it yourself, set
+                        <span class="code">CROWDCOUNT_ADMIN_PASSWORD</span> before the first start.
+                    </p>
+                    <p>Locked out? Run <span class="code">crowdcount admin reset-password</span>.</p>
+                </details>
+
+                <p class="login-foot"><a href="./">Continue to the live dashboard</a> without signing in</p>
+            </div>
+        </main>
+        <script src="assets/js/icons.js"></script>
+        <script src="assets/js/core.js"></script>
+        <script src="assets/js/login.js"></script>
+    </body>
+</html>

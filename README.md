@@ -1,306 +1,224 @@
-# YOLOv8 People Detection with Zone Management
+<h1 align="center">
+  <img src="src/crowdcount/web/favicon.svg" width="56" alt=""><br>
+  CrowdCount
+</h1>
 
-A comprehensive people detection system using YOLOv8 that tracks individuals with unique IDs and supports configurable polygonal zones for area monitoring.
+<p align="center">
+  <strong>Real-time people counting for any camera: YOLO26 detection, ByteTrack tracking, polygon zones and a live web dashboard, in one command.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/nvmaditya/CrowdCount/actions/workflows/ci.yml"><img src="https://github.com/nvmaditya/CrowdCount/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/badge/python-3.10%20%7C%203.12%20%7C%203.14-3776AB?logo=python&logoColor=white" alt="Python 3.10+">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/nvmaditya/CrowdCount" alt="License"></a>
+  <img src="https://img.shields.io/badge/code%20style-ruff-D7FF64" alt="Ruff">
+</p>
+
+<p align="center">
+  <img src="docs/images/demo.gif" width="760" alt="Animated demo: people walking across a campus plaza, each with a tracked bounding box, ID, confidence and motion trail, while two polygon zones show live 'now' and 'total' counts">
+</p>
+
+## Why CrowdCount
+
+Knowing how many people are in a space, and where, matters for safety limits, queues,
+staffing and space planning. Commercial people counters are closed boxes; research code stops
+at a notebook. CrowdCount sits in between: point it at an RTSP camera or a video
+file, draw the areas you care about, and get live occupancy, alerts and exports in a browser.
+It is fully local, open source, and built to be read and extended.
 
 ## Features
 
--   **Real-time People Detection**: Uses YOLOv8 for accurate person detection
--   **Unique ID Tracking**: Assigns and maintains unique IDs for each detected person across frames
--   **Bounding Box Visualization**: Clear visual representation with color-coded boxes
--   **Tracking Trails**: Shows movement history for each person
--   **Polygonal Zones**: Define custom detection zones with any polygon shape
--   **On-Screen Zone Drawing**: Create zones directly on the video feed with mouse clicks
--   **Zone Statistics**: Track current count and total unique visitors per zone
--   **Zone Monitoring**: Tracks which zone(s) each person is in
--   **Interactive Zone Editor**: Visual tool to create and edit zones
--   **Persistent Configuration**: Zones saved in JSON format for reuse
--   **Video Output**: Save processed video with detections and zones
+- **Detection and tracking.** YOLO26 (`n` to `x`) finds people by default; YOLO11, YOLOv8 or
+  other COCO-trained Ultralytics weights also work. ByteTrack, or BoT-SORT for moving cameras,
+  gives each person a persistent ID.
+- **Polygon zones.** Draw them on the live frame in the Zones page or in an OpenCV editor.
+  Each zone gets live occupancy and a unique-track count; zones may overlap. Edits apply to the
+  running detector within a second, with no restart.
+- **Live dashboard.** Annotated MJPEG video, stat cards, per-zone bars against their limits,
+  a people-over-time chart (10 minutes to an hour) and a cumulative heatmap over the scene.
+  Five pages (Live, Alerts, Zones, Settings, Sign in), light and dark themes, and it works
+  offline (no CDNs).
+- **Alerts with early warning.** An alert rule per scope, Total occupancy or a zone: a limit, an
+  early-warning percentage (80% by default), an on/off switch and an optional banner. Counts
+  near the limit raise a warning before it is crossed. Alerts are recorded once, and admins
+  acknowledge them from the banner or the alert history. They clear 5 seconds after the count
+  drops, so a count hovering at a limit doesn't flap.
+- **Administration.** Accounts with admin and user roles (anyone can view Live, Alerts and
+  Zones), saved video sources in Settings, and an activity log of every sign-in and change,
+  exportable as CSV or PDF.
+- **Exports.** Per-second history as CSV, a PDF occupancy report, and per-frame metrics
+  (timing, confidences, zone time series, track lifetimes) for analysis.
+- **Runs anywhere.** RTSP/HTTP streams (with reconnects) and video files. CPU, Apple silicon
+  (MPS) or NVIDIA (CUDA), chosen automatically. Docker image included.
+- **Built to last.** One CLI, layered config (`crowdcount.toml`, env, flags), readable errors
+  with exit codes, 250+ tests, and CI on Python 3.10 to 3.14.
 
-## Installation
+<p align="center">
+  <img src="docs/images/hero.jpg" width="820" alt="The CrowdCount Live page: an alert banner above four stat cards, the annotated camera view, and zones listed against their limits">
+  <br><sub>The Live page while a zone is over its limit.</sub>
+</p>
 
-### 1. Clone or download this repository
+<p align="center">
+  <img src="docs/images/zone-editor.jpg" width="820" alt="The Zones page: drawing a new polygon zone on the live camera frame, with the existing zones listed beside it">
+  <br><sub>Drawing a zone on the live frame on the Zones page.</sub>
+</p>
 
-### 2. Install Python dependencies
+## Quickstart
+
+Requires Python 3.10+ and an internet connection on first run (it downloads the model and a
+sample video).
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/nvmaditya/CrowdCount.git && cd CrowdCount
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+crowdcount demo
 ```
 
-### 3. Download YOLOv8 model (optional - will auto-download on first run)
+Open **http://localhost:8080**. The demo runs on OpenCV's public `vtest.avi` pedestrian clip,
+with zones drawn for it. The terminal prints a one-time password for the `admin` account. Sign
+in to draw zones and set alert rules.
 
-The system uses YOLOv8n (nano) by default. Other models available:
-
--   `yolov8n.pt` - Nano (fastest, recommended for real-time)
--   `yolov8s.pt` - Small
--   `yolov8m.pt` - Medium
--   `yolov8l.pt` - Large
--   `yolov8x.pt` - Extra Large (most accurate)
+> On Windows, activate with `.venv\Scripts\activate` instead of `source .venv/bin/activate`.
+> With `make` installed, `make demo` does the last three steps. On Linux without a GPU, run
+> `pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu` before
+> `pip install -e .` to skip the multi-gigabyte CUDA build of PyTorch.
 
 ## Usage
 
-### People Detection
-
-#### Basic usage with webcam:
-
 ```bash
-python people_detector.py
+# A video file, looping, with zones from a file
+crowdcount run --source lobby.mp4 --loop --zones lobby-zones.json
+
+# An IP camera, dashboard reachable from your network
+crowdcount run --source "rtsp://user:pass@192.168.1.20/stream1" --host 0.0.0.0
+
+# Detector only: preview window off, save the annotated video
+crowdcount detect --source lobby.mp4 --no-display --output annotated.mp4
+
+# Draw zones in an OpenCV window instead of the browser
+crowdcount zones edit --source lobby.mp4
+
+# Benchmark a model on the demo clip and write metrics CSVs
+crowdcount detect --source demo --no-display --no-realtime --max-frames 300 \
+    --model yolo26s.pt --metrics-out runs/yolo26s
+
+# Forgot the admin password
+crowdcount admin reset-password
 ```
 
-#### Process a video file:
+Every command takes `--help`. A Dockerfile and compose file are included; see the
+[deployment guide](docs/deployment.md).
 
-```bash
-python people_detector.py --source video.mp4
+## How it works
+
+```mermaid
+flowchart LR
+    cam["RTSP camera · video file"] --> det["YOLO26<br/>person detection"]
+    det --> trk["ByteTrack<br/>track IDs"]
+    trk --> zon["Zones<br/>occupancy · unique tracks"]
+    zon --> st[("Live state<br/>counts · 1 Hz history<br/>heatmap · alerts")]
+    st --> api["FastAPI"]
+    api --> ui["Dashboard<br/>MJPEG · charts · heatmap"]
+    api --> adm["Alerts · Zones · Settings<br/>rules · zones · sources · users"]
+    adm -. "edits zones.json<br/>(hot reload)" .-> zon
+    st -. "alert records" .-> db[("data/ JSON<br/>users · config · audit log")]
 ```
 
-#### Save output video:
-
-```bash
-python people_detector.py --source video.mp4 --output output.mp4
-```
-
-#### Use different YOLOv8 model:
-
-```bash
-python people_detector.py --model yolov8s.pt
-```
-
-#### Custom zones file:
-
-```bash
-python people_detector.py --zones custom_zones.json
-```
-
-#### Run without display (headless):
-
-```bash
-python people_detector.py --source video.mp4 --output output.mp4 --no-display
-```
-
-### Zone Management
-
-#### Interactive zone editor (standalone tool):
-
-```bash
-python zone_manager.py
-```
-
-#### Use video file for zone creation:
-
-```bash
-python zone_manager.py --source video.mp4
-```
-
-#### List existing zones:
-
-```bash
-python zone_manager.py --mode list
-```
-
-#### Draw zones directly in the main detector:
-
-```bash
-python people_detector.py
-# Press 'd' to enable drawing mode, then click to create polygon zones
-```
-
-## Controls
-
-### Main Detector Controls
-
-When running `people_detector.py`:
-
--   **'d' key**: Toggle drawing mode (create zones on-screen)
--   **Left Click** (in drawing mode): Add point to current zone
--   **Right Click** (in drawing mode): Finish current zone (minimum 3 points)
--   **Middle Click** (in drawing mode): Remove last point
--   **'c' key**: Clear current zone being drawn
--   **'s' key**: Save zones to file
--   **'z' key**: Print zone statistics to console
--   **'q' key**: Quit
-
-### Zone Editor Controls
-
-When running `zone_manager.py`:
-
--   **Left Click**: Add point to current zone
--   **Right Click**: Finish current zone (minimum 3 points)
--   **Middle Click**: Remove last point
--   **'s' key**: Save zones to file
--   **'c' key**: Clear current zone being drawn
--   **'d' key**: Delete a zone (prompts for index)
--   **'t' key**: Toggle zone on/off (prompts for index)
--   **'l' key**: List all zones
--   **'q' key**: Quit
+The detector and the web server run in one process and share in-memory state; persistent
+data (accounts, settings, logs, alert history) is plain JSON written atomically. Details are in
+[docs/architecture.md](docs/architecture.md).
 
 ## Configuration
 
-### zones.json Structure
+Flags override environment variables, which override `crowdcount.toml`, which overrides the
+defaults:
 
-```json
-{
-    "zones": [
-        {
-            "name": "Entry Zone",
-            "points": [
-                [100, 100],
-                [300, 100],
-                [300, 300],
-                [100, 300]
-            ],
-            "color": [0, 255, 0],
-            "enabled": true
-        }
-    ]
-}
+```toml
+# crowdcount.toml  (copy crowdcount.example.toml)
+[video]
+source = "rtsp://user:pass@192.168.1.20/stream1"
+
+[detection]
+model = "yolo26s.pt"     # yolo26 n, s, m (default), l, x
+tracker = "bytetrack"    # or "botsort", or a tracker YAML
+confidence = 0.45
+
+[server]
+host = "0.0.0.0"
 ```
 
-### Zone Properties:
+Secrets and paths go in the environment or `.env` (see [`.env.example`](.env.example)):
+`CROWDCOUNT_ADMIN_PASSWORD`, `CROWDCOUNT_JWT_SECRET`, `CROWDCOUNT_DATA_DIR`. Alert rules, zones,
+video sources and users are managed in the app (Alerts, Zones and Settings). The full reference is in
+[docs/configuration.md](docs/configuration.md).
 
--   **name**: Descriptive name for the zone
--   **points**: Array of [x, y] coordinates defining the polygon
--   **color**: RGB color values [R, G, B] (0-255)
--   **enabled**: Boolean to activate/deactivate zone
+## Performance
 
-## How It Works
+Processing throughput (detection, tracking, zone counting, annotation) on the 768×576 demo
+clip, 300 frames, ByteTrack, measured with `crowdcount detect --source demo --no-display
+--no-realtime --max-frames 300 --conf 0.35 --min-area 800 --model <model> --device <mps|cpu>`:
 
-### People Detection
+| Model | Apple M1 Pro, MPS | Apple M1 Pro, CPU | NVIDIA GPU |
+| --- | ---: | ---: | ---: |
+| yolo26n | 65 FPS | 28 FPS | _TODO: measure_ |
+| yolo26s | 49 FPS | 17 FPS | _TODO: measure_ |
+| yolo26m (default) | 26 FPS | 10 FPS | _TODO: measure_ |
 
-1. YOLOv8 processes each frame and detects people (class 0)
-2. Built-in tracking assigns unique IDs that persist across frames
-3. Each person gets:
-    - Unique color-coded bounding box
-    - ID number displayed on box
-    - Confidence score
-    - Center point marker
-    - Movement trail (last 30 positions)
-    - Zone information (if in any zone)
+<!-- TODO(maintainer): fill the NVIDIA column with `--device cuda:0` runs of the same command. -->
 
-### Zone Management
+Larger frames and denser crowds are slower. Video files are paced to their native frame rate
+unless you pass `--no-realtime`. On this hardware YOLO11 and YOLOv8 are within about 5% of
+YOLO26 at the `n` and `s` sizes, and `yolov8m` is about 12% faster than `yolo26m` on the GPU.
+YOLO26 is the default for its higher accuracy on Ultralytics' COCO benchmark. The side-by-side comparison, methodology and caveats are in
+[docs/tracking.md](docs/tracking.md#choosing-a-model). This repository has no labelled ground
+truth, so it reports no accuracy figures of its own (see the roadmap).
 
-1. Zones are defined as polygons with any number of vertices
-2. System checks if person's center point is inside zone polygons
-3. Multiple zones can overlap - persons can be in multiple zones
-4. Zones are drawn as semi-transparent overlays
-5. Zone configuration persists in JSON file
-6. **Zone Statistics**: Each zone displays:
-    - **Current Count**: Number of people currently in the zone
-    - **Total Visitors**: Total unique individuals who have entered the zone (tracked by ID)
+## Documentation
 
-## Examples
+| Guide | Covers |
+| --- | --- |
+| [Architecture](docs/architecture.md) | Modules, the per-frame pipeline, live and persistent state, design choices |
+| [Configuration](docs/configuration.md) | Every command, flag, config key and environment variable; exit codes; metrics files |
+| [Zones](docs/zones.md) | Drawing zones, file format, counting rules, alert rules |
+| [Detection and tracking](docs/tracking.md) | ByteTrack vs BoT-SORT, tuning, filters, model choice and benchmarks |
+| [Dashboard](docs/dashboard.md) | The five pages, alert levels, roles, activity log, first sign-in, security model, upgrading from 1.x |
+| [HTTP API](docs/api.md) | Endpoints, authentication, changes from 1.x |
+| [Deployment](docs/deployment.md) | Docker, compose, systemd, multiple cameras, reverse proxy |
+| [Troubleshooting](docs/troubleshooting.md) | Cameras, streams, models, counting and dashboard issues |
 
-### Example 1: Create Zones While Detecting
+## Roadmap
 
-```bash
-# Run detector and press 'd' to enable drawing mode
-python people_detector.py
-# Click on screen to draw polygon zones
-# Right-click to complete each zone
-# Press 's' to save zones
-```
+Planned, not yet built:
 
-### Example 2: Monitor Entry/Exit Points with Statistics
+- [ ] Multiple cameras in one process, with a camera switcher on the dashboard
+- [ ] Optional sign-in for the dashboard and live stream
+- [ ] Line-crossing (entry/exit) counts and dwell time per zone
+- [ ] Alert notifications via webhook and email
+- [ ] History that survives restarts (SQLite)
+- [ ] Accuracy evaluation against a labelled dataset (counting error, ID switches)
+- [ ] ONNX/TensorRT export for edge devices
+- [ ] Prometheus metrics endpoint
 
-```bash
-# Create zones for doorways using zone manager
-python zone_manager.py --source Camera-Video.mp4
+## Contributing
 
-# Run detection and press 'z' to see statistics
-python people_detector.py
-```
-
-### Example 3: Process Surveillance Video
-
-```bash
-# Process video with existing zones
-python people_detector.py --source surveillance.mp4 --output monitored.mp4
-```
-
-### Example 4: Restrict Area Monitoring
-
-```bash
-# Edit zones.json to define restricted areas
-# Run detection to see who enters restricted zones
-python people_detector.py --zones restricted_zones.json
-```
-
-## Output Information
-
-The detector prints detailed information every 30 frames:
-
-```
-Frame 42: 3 people detected
-  - ID 1: conf=0.89 in ['Entry Zone']
-  - ID 2: conf=0.94
-  - ID 5: conf=0.87 in ['Exit Zone', 'Restricted Area']
-```
-
-Press 'z' to see detailed zone statistics:
-
-```
-=== Zone Statistics ===
-Entry Zone:
-  Current Count: 2
-  Total Visitors: 5
-  Visitor IDs: [1, 3, 5, 7, 9]
-Exit Zone:
-  Current Count: 1
-  Total Visitors: 3
-  Visitor IDs: [5, 7, 9]
-=====================
-```
-
-## Performance Tips
-
-1. **Use YOLOv8n** for real-time performance
-2. **GPU acceleration**: Install PyTorch with CUDA support
-3. **Lower resolution**: Resize input frames if needed
-4. **Reduce trail length**: Modify `track_history` max length in code
-5. **Disable zones**: Set `"enabled": false` for unused zones
-
-## Troubleshooting
-
-### Camera not detected:
-
--   Try different camera indices: `--source 1`, `--source 2`, etc.
--   Check camera permissions
-
-### Slow performance:
-
--   Use smaller YOLOv8 model (yolov8n.pt)
--   Reduce video resolution
--   Ensure GPU drivers are installed
-
-### No detections:
-
--   Check lighting conditions
--   Verify camera is working
--   Try different YOLOv8 model
--   Ensure people are clearly visible
-
-## Requirements
-
--   Python 3.8+
--   OpenCV
--   Ultralytics YOLOv8
--   NumPy
--   (Optional) CUDA-capable GPU for faster processing
-
-## File Structure
-
-```
-.
-├── people_detector.py    # Main detection script
-├── zone_manager.py       # Zone creation and editing tool
-├── zones.json           # Zone configuration file
-├── requirements.txt     # Python dependencies
-└── README.md           # This file
-```
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers setup
+(`make install`), tests (`make test`, about 2 seconds, no GPU needed), style and commit
+conventions. Release notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-This project uses YOLOv8 from Ultralytics (AGPL-3.0 license).
+CrowdCount is licensed under the [GNU Affero General Public License v3.0](LICENSE), the same
+license as [Ultralytics YOLO](https://github.com/ultralytics/ultralytics), which it builds on. You
+may use, modify and redistribute it. If you distribute a modified version, or run one as a
+network service for others, you must offer its source code under the same license; the
+dashboard footer links to the source. See [LICENSE](LICENSE) for the full terms.
 
 ## Credits
 
--   YOLOv8 by Ultralytics
--   OpenCV for computer vision operations
+- [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (YOLO26, YOLO11, YOLOv8): detection models and tracker implementations
+- [ByteTrack](https://arxiv.org/abs/2110.06864) (Zhang et al., ECCV 2022) and [BoT-SORT](https://arxiv.org/abs/2206.14651) (Aharon et al., 2022)
+- [OpenCV](https://opencv.org/): video I/O and drawing; the demo uses its `vtest.avi` sample clip
+- [FastAPI](https://fastapi.tiangolo.com/), [Chart.js](https://www.chartjs.org/), [Geist](https://vercel.com/font) (fonts), [Lucide](https://lucide.dev/) (icons), [ReportLab](https://www.reportlab.com/)
+
+Built by [Aditya Khandelwal](https://github.com/nvmaditya).

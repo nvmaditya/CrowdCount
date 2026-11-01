@@ -71,7 +71,7 @@ jobs:
           pip install torch torchvision --index-url "$TORCH_INDEX"
           pip install -e .
       - name: Cache demo video and weights
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/crowdcount
           key: crowdcount-assets-v2

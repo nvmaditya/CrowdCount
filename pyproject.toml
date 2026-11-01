@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+requires = ["hatchling>=1.33.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -23,25 +23,25 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Image Recognition",
 ]
 dependencies = [
-    "ultralytics>=8.4.142,<9",  # YOLO26 with its default NMS head
-    "lap>=0.5.12",
-    "opencv-python>=4.8,<6",
-    "numpy>=1.24",
-    "fastapi>=0.110,<1",
-    "uvicorn>=0.29",
-    "websockets>=12",
-    "pydantic>=2.6,<3",
-    "PyJWT>=2.8,<3",
-    "bcrypt>=4.1,<6",
-    "reportlab>=4.0,<6",
+    "ultralytics>=8.4.192,<9",  # YOLO26 with its default NMS head
+    "lap>=0.5.13",
+    "opencv-python>=5.0.0.93,<6",
+    "numpy>=2.2.6",
+    "fastapi>=0.162.0,<1",
+    "uvicorn>=0.54.0",
+    "websockets>=16.1.1",
+    "pydantic>=2.14.1,<3",
+    "PyJWT>=2.15.1,<3",
+    "bcrypt>=5.0.0,<6",
+    "reportlab>=5.1.0,<6",
     "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8",
-    "httpx>=0.27",
-    "ruff>=0.6",
+    "pytest>=9.2.0",
+    "httpx>=0.28.1",
+    "ruff>=0.17.3",
 ]
 
 [project.scripts]

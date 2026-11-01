@@ -1,7 +1,9 @@
+import signal
+
 import pytest
 
-from crowdcount import __version__
-from crowdcount.cli import EXIT_ERROR, EXIT_OK, EXIT_USAGE, main
+from crowdcount import __version__, cli
+from crowdcount.cli import EXIT_ERROR, EXIT_INTERRUPTED, EXIT_OK, EXIT_USAGE, main
 from crowdcount.zones import Zone, save_zones
 
 
@@ -59,6 +61,42 @@ def test_port_in_use(tmp_path, capsys):
         port = s.getsockname()[1]
         assert main(["serve", "--port", str(port), "--data-dir", str(tmp_path / "data")]) == EXIT_ERROR
     assert "cannot listen on 127.0.0.1" in capsys.readouterr().err
+
+
+class _SignalOnSecondFrame:
+    """Stands in for PersonDetector and delivers a signal mid-run, as Ctrl+C or `kill` would."""
+
+    def __init__(self, signum):
+        self.signum = signum
+        self.calls = 0
+        self.model_name, self.tracker_name, self.device = "fake", "fake", "cpu"
+
+    def track(self, frame):
+        self.calls += 1
+        if self.calls == 2:
+            signal.raise_signal(self.signum)
+        return []
+
+
+@pytest.fixture
+def restore_signals():
+    saved = {s: signal.getsignal(s) for s in (signal.SIGINT, signal.SIGTERM)}
+    yield
+    for s, handler in saved.items():
+        signal.signal(s, handler)
+    cli._terminated = False
+
+
+@pytest.mark.parametrize(("signum", "code"), [(signal.SIGINT, EXIT_INTERRUPTED), (signal.SIGTERM, EXIT_OK)])
+def test_signal_during_detection_sets_the_exit_code(
+    signum, code, tmp_path, synthetic_video, monkeypatch, restore_signals
+):
+    fake = _SignalOnSecondFrame(signum)
+    monkeypatch.setattr("crowdcount.detector.PersonDetector", lambda *a, **kw: fake)
+    save_zones(tmp_path / "zones.json", [Zone("all", [(0, 0), (159, 0), (159, 119), (0, 119)])])
+    args = ["detect", "--source", str(synthetic_video), "--no-display", "--no-realtime"]
+    assert main(args) == code
+    assert fake.calls == 2  # stopped at the signal, not at the end of the clip
 
 
 def test_missing_source_is_a_usage_error(capsys):

@@ -100,6 +100,24 @@ def test_metrics_and_recording(synthetic_video, zones_file, tmp_path):
     assert summary["zone_unique_tracks"] == {"left": 1, "right": 0}
 
 
+def test_interrupt_cleans_up_then_propagates(synthetic_video, zones_file, tmp_path):
+    class Interrupted(FakeTracker):
+        def track(self, frame):
+            if self.calls == 3:
+                raise KeyboardInterrupt
+            return super().track(frame)
+
+    state = SharedState()
+    out = tmp_path / "metrics"
+    options = PipelineOptions(realtime=False, metrics_out=out)
+    with pytest.raises(KeyboardInterrupt):  # the CLI turns it into exit code 130 (Ctrl+C) or 0 (SIGTERM)
+        Pipeline(Interrupted(), VideoSource(str(synthetic_video)), zones_file, state, options).run()
+    assert state.status().state == "stopped"
+    summary = json.loads((out / "run_summary.json").read_text())
+    assert summary["stopped_by"] == "user"
+    assert summary["frames_processed"] == 3
+
+
 def test_tracker_errors_mark_status(synthetic_video, zones_file):
     class Broken:
         def track(self, frame):

@@ -218,8 +218,9 @@ class Pipeline:
                         time.sleep(remaining)
             else:
                 summary.stopped_by = "user"
-        except KeyboardInterrupt:
+        except KeyboardInterrupt:  # Ctrl+C or SIGTERM: clean up below, then let the CLI choose the exit code
             summary.stopped_by = "user"
+            raise
         except BaseException as exc:
             summary.stopped_by = "error"
             error = exc
@@ -239,6 +240,13 @@ class Pipeline:
             summary.zone_totals = {n: s.total_visitors for n, s in self.zone_tracker.stats().items()}
             if metrics is not None:
                 self._finish_metrics(metrics, summary)
+            if error is None:
+                logger.info(
+                    "Detection stopped (%s): %d frames processed, %.1f fps mean processing rate",
+                    summary.stopped_by,
+                    summary.frames_processed,
+                    summary.mean_fps,
+                )
         return summary
 
     # ------------------------------------------------------------------ helpers

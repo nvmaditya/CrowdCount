@@ -336,12 +336,6 @@ def _run_detection(
             info={"model": detector.model_name, "tracker": detector.tracker_name, "device": detector.device},
         )
         summary = pipeline.run()
-        logger.info(
-            "Detection stopped (%s): %d frames processed, %.1f fps mean processing rate",
-            summary.stopped_by,
-            summary.frames_processed,
-            summary.mean_fps,
-        )
         if server is not None and summary.stopped_by in ("eof", "max_frames"):
             logger.info(
                 "Dashboard still available at %s; press Ctrl+C to exit",

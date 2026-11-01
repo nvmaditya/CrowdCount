@@ -6,6 +6,7 @@ import io
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -100,7 +101,7 @@ def summary_report(summary: dict[str, Any], history: list[dict[str, Any]]) -> by
         for name, z in zones.items():
             rows.append(
                 [
-                    Paragraph(name, s["cell"]),
+                    Paragraph(escape(name), s["cell"]),
                     z.get("current", 0),
                     peaks.get(name, 0),
                     z.get("total_visitors", 0),
@@ -149,7 +150,7 @@ def activity_report(logs: Sequence[ActivityLog], total: int) -> bytes:
                     e.action.value.replace("_", " ").title(),
                     e.username or "-",
                     e.ip_address or "-",
-                    Paragraph(e.details or "-", s["cell"]),
+                    Paragraph(escape(e.details or "-"), s["cell"]),
                 ]
             )
         story.append(_table(rows, [36 * mm, 22 * mm, 40 * mm, 28 * mm, 30 * mm, 112 * mm]))
